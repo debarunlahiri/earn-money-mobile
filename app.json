@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Earn Money",
+    "slug": "earn-money-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.earnmoneyapp"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.earnmoneyapp"
+    },
+    "web": {},
+    "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "bd8fe442-a92d-4b4c-9397-82da381bd127"
+      }
+    }
+  }
+}
