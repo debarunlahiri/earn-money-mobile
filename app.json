@@ -17,9 +17,6 @@
       "bundleIdentifier": "com.earnmoneyapp"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
-      },
       "package": "com.earnmoneyapp"
     },
     "web": {},
