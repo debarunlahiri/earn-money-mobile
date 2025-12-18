@@ -5,9 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  SafeAreaView,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Button} from '../components/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -24,7 +25,8 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
   navigation,
   route,
 }) => {
-  const {theme} = useTheme();
+  const {theme, isDark} = useTheme();
+  const insets = useSafeAreaInsets();
   const {enquiry}: {enquiry: Enquiry} = route.params;
 
   const handleCall = () => {
@@ -36,9 +38,20 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
   };
 
   return (
-    <SafeAreaView
+    <View
       style={[styles.container, {backgroundColor: theme.colors.background}]}>
-      <View style={[styles.header, {borderBottomColor: theme.colors.border}]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
+      <View
+        style={[
+          styles.header,
+          {
+            borderBottomColor: theme.colors.border,
+            paddingTop: insets.top,
+          },
+        ]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
@@ -53,7 +66,9 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <Image source={{uri: enquiry.image}} style={styles.image} />
+        <View style={styles.imageContainer}>
+          <Image source={{uri: enquiry.image}} style={styles.image} />
+        </View>
 
         <View style={styles.content}>
           <Text style={[styles.title, {color: theme.colors.text}]}>
@@ -61,105 +76,157 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
           </Text>
 
           <View style={styles.metaContainer}>
-            <View style={styles.metaItem}>
+            <View style={[styles.metaCard, {backgroundColor: theme.colors.surface}]}>
               <Icon
                 name="calendar-today"
-                size={16}
-                color={theme.colors.textSecondary}
+                size={18}
+                color={theme.colors.primary}
+                style={{marginRight: 10}}
               />
               <Text
-                style={[styles.metaText, {color: theme.colors.textSecondary}]}>
+                style={[styles.metaText, {color: theme.colors.text}]}>
                 {formatDate(enquiry.date)}
               </Text>
             </View>
-            <View style={styles.metaItem}>
+            <View style={[styles.metaCard, styles.metaCardLast, {backgroundColor: theme.colors.surface}]}>
               <Icon
                 name="access-time"
-                size={16}
-                color={theme.colors.textSecondary}
+                size={18}
+                color={theme.colors.primary}
+                style={{marginRight: 10}}
               />
               <Text
-                style={[styles.metaText, {color: theme.colors.textSecondary}]}>
+                style={[styles.metaText, {color: theme.colors.text}]}>
                 {formatTime(enquiry.time)}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.section, {borderTopColor: theme.colors.border}]}>
-            <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-              Description
-            </Text>
-            <Text
-              style={[styles.description, {color: theme.colors.textSecondary}]}>
-              {enquiry.description}
-            </Text>
-          </View>
-
           {enquiry.propertyType && (
             <View
-              style={[styles.section, {borderTopColor: theme.colors.border}]}>
+              style={[styles.infoCard, {backgroundColor: theme.colors.surface}]}>
               <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
                 Property Details
               </Text>
-              <View style={styles.detailsGrid}>
+              <View style={styles.detailsContainer}>
                 {enquiry.propertyType && (
-                  <View style={styles.detailItem}>
-                    <Text
-                      style={[
-                        styles.detailLabel,
-                        {color: theme.colors.textSecondary},
-                      ]}>
-                      Type
-                    </Text>
-                    <Text
-                      style={[styles.detailValue, {color: theme.colors.text}]}>
-                      {enquiry.propertyType}
-                    </Text>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                      <Icon
+                        name="category"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[
+                          styles.infoLabel,
+                          {color: theme.colors.textSecondary},
+                        ]}>
+                        Property Type
+                      </Text>
+                      <Text
+                        style={[styles.infoValue, {color: theme.colors.text}]}>
+                        {enquiry.propertyType}
+                      </Text>
+                    </View>
                   </View>
                 )}
                 {enquiry.propertyPrice && (
-                  <View style={styles.detailItem}>
-                    <Text
-                      style={[
-                        styles.detailLabel,
-                        {color: theme.colors.textSecondary},
-                      ]}>
-                      Price
-                    </Text>
-                    <Text
-                      style={[styles.detailValue, {color: theme.colors.text}]}>
-                      {enquiry.propertyPrice}
-                    </Text>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                      <Icon
+                        name="attach-money"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[
+                          styles.infoLabel,
+                          {color: theme.colors.textSecondary},
+                        ]}>
+                        Price
+                      </Text>
+                      <Text
+                        style={[styles.infoValue, {color: theme.colors.text}]}>
+                        {enquiry.propertyPrice}
+                      </Text>
+                    </View>
                   </View>
                 )}
                 {enquiry.propertyLocation && (
-                  <View style={styles.detailItem}>
-                    <Text
-                      style={[
-                        styles.detailLabel,
-                        {color: theme.colors.textSecondary},
-                      ]}>
-                      Location
-                    </Text>
-                    <Text
-                      style={[styles.detailValue, {color: theme.colors.text}]}>
-                      {enquiry.propertyLocation}
-                    </Text>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                      <Icon
+                        name="location-on"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[
+                          styles.infoLabel,
+                          {color: theme.colors.textSecondary},
+                        ]}>
+                        Location
+                      </Text>
+                      <Text
+                        style={[styles.infoValue, {color: theme.colors.text}]}>
+                        {enquiry.propertyLocation}
+                      </Text>
+                    </View>
                   </View>
                 )}
                 {enquiry.propertyArea && (
-                  <View style={styles.detailItem}>
-                    <Text
-                      style={[
-                        styles.detailLabel,
-                        {color: theme.colors.textSecondary},
-                      ]}>
-                      Area
-                    </Text>
-                    <Text
-                      style={[styles.detailValue, {color: theme.colors.text}]}>
-                      {enquiry.propertyArea}
-                    </Text>
+                  <View style={styles.infoRow}>
+                    <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                      <Icon
+                        name="aspect-ratio"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[
+                          styles.infoLabel,
+                          {color: theme.colors.textSecondary},
+                        ]}>
+                        Area
+                      </Text>
+                      <Text
+                        style={[styles.infoValue, {color: theme.colors.text}]}>
+                        {enquiry.propertyArea}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {enquiry.propertyStatus && (
+                  <View style={[styles.infoRow, styles.infoRowLast]}>
+                    <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                      <Icon
+                        name="check-circle"
+                        size={20}
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                    <View style={styles.infoContent}>
+                      <Text
+                        style={[
+                          styles.infoLabel,
+                          {color: theme.colors.textSecondary},
+                        ]}>
+                        Status
+                      </Text>
+                      <Text
+                        style={[styles.infoValue, {color: theme.colors.text}]}>
+                        {enquiry.propertyStatus}
+                      </Text>
+                    </View>
                   </View>
                 )}
               </View>
@@ -174,19 +241,18 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
               icon={
                 <Icon name="phone" size={20} color={theme.colors.primary} />
               }
-              style={{flex: 1, marginRight: 8}}
+              style={{flex: 1, marginRight: 12}}
             />
             <Button
               title="WhatsApp"
               onPress={handleWhatsApp}
-              variant="outline"
-              icon={<Icon name="chat" size={20} color={theme.colors.primary} />}
-              style={{flex: 1, marginLeft: 8}}
+              icon={<Icon name="chat" size={20} color="#FFFFFF" />}
+              style={{flex: 1}}
             />
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -213,71 +279,105 @@ const styles = StyleSheet.create({
     width: 40,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 32,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 320,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
-    height: 300,
+    height: '100%',
     resizeMode: 'cover',
   },
   content: {
-    padding: 16,
+    padding: 20,
+    paddingTop: 24,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
+    fontSize: 28,
+    fontWeight: '800',
+    marginBottom: 20,
+    letterSpacing: -0.5,
+    lineHeight: 36,
   },
   metaContainer: {
     flexDirection: 'row',
     marginBottom: 24,
   },
-  metaItem: {
+  metaCard: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginRight: 12,
+  },
+  metaCardLast: {
+    marginRight: 0,
   },
   metaText: {
     fontSize: 14,
-    marginLeft: 6,
+    fontWeight: '600',
   },
-  section: {
-    paddingTop: 24,
-    marginTop: 24,
-    borderTopWidth: 1,
+  infoCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 20,
+    letterSpacing: -0.3,
   },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
+  detailsContainer: {
+    marginTop: 4,
   },
-  detailsGrid: {
+  infoRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-  },
-  detailItem: {
-    width: '50%',
+    alignItems: 'flex-start',
     marginBottom: 16,
   },
-  detailLabel: {
-    fontSize: 12,
-    marginBottom: 4,
+  infoRowLast: {
+    marginBottom: 0,
   },
-  detailValue: {
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoValue: {
     fontSize: 16,
     fontWeight: '600',
+    lineHeight: 22,
   },
   actionButtons: {
     flexDirection: 'row',
-    marginTop: 32,
+    marginTop: 8,
     marginBottom: 16,
-  },
-  actionButton: {
-    marginHorizontal: 0,
   },
 });

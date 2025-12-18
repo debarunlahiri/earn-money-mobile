@@ -4,13 +4,18 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  SafeAreaView,
   RefreshControl,
+  StatusBar,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Card} from '../components/Card';
 import {Enquiry} from '../types';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const sampleProfileImage = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400';
 
 const mockEnquiries: Enquiry[] = [
   {
@@ -23,6 +28,12 @@ const mockEnquiries: Enquiry[] = [
     time: '14:30',
     phoneNumber: '+1234567890',
     enquiryType: 'buy',
+    propertyType: 'Apartment',
+    propertyName: 'Downtown Residency',
+    propertyPrice: '₹65 Lakhs',
+    propertyLocation: 'Downtown, Sector 15, New Delhi',
+    propertyArea: '1200 sqft',
+    propertyStatus: 'Ready to Move',
   },
   {
     id: '2',
@@ -33,6 +44,12 @@ const mockEnquiries: Enquiry[] = [
     time: '10:15',
     phoneNumber: '+1234567891',
     enquiryType: 'sell',
+    propertyType: 'Villa',
+    propertyName: 'Garden View Villa',
+    propertyPrice: '₹2.5 Crores',
+    propertyLocation: 'Green Valley, Mumbai Suburbs',
+    propertyArea: '3500 sqft',
+    propertyStatus: 'Under Construction',
   },
   {
     id: '3',
@@ -44,6 +61,12 @@ const mockEnquiries: Enquiry[] = [
     time: '16:45',
     phoneNumber: '+1234567892',
     enquiryType: 'buy',
+    propertyType: 'Studio Apartment',
+    propertyName: 'City Center Studios',
+    propertyPrice: '₹42 Lakhs',
+    propertyLocation: 'Electronic City, Bangalore',
+    propertyArea: '600 sqft',
+    propertyStatus: 'Ready to Move',
   },
 ];
 
@@ -51,10 +74,19 @@ interface PastEnquiriesScreenProps {
   navigation: any;
 }
 
+const getRootNavigation = (navigation: any): any => {
+  let nav = navigation;
+  while (nav.getParent()) {
+    nav = nav.getParent();
+  }
+  return nav;
+};
+
 export const PastEnquiriesScreen: React.FC<PastEnquiriesScreenProps> = ({
   navigation,
 }) => {
-  const {theme} = useTheme();
+  const {theme, isDark} = useTheme();
+  const insets = useSafeAreaInsets();
   const [enquiries] = useState<Enquiry[]>(mockEnquiries);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -69,16 +101,83 @@ export const PastEnquiriesScreen: React.FC<PastEnquiriesScreenProps> = ({
     navigation.navigate('EnquiryDetails', {enquiry});
   };
 
-  const renderItem = ({item}: {item: Enquiry}) => (
-    <Card
-      title={item.title}
-      description={item.description}
-      image={item.image}
-      date={item.date}
-      time={item.time}
-      onPress={() => handleEnquiryPress(item)}
-    />
-  );
+  const getEnquiryTypeColor = (type?: string) => {
+    switch (type) {
+      case 'buy':
+        return theme.colors.success;
+      case 'sell':
+        return theme.colors.primary;
+      default:
+        return theme.colors.textSecondary;
+    }
+  };
+
+  const getEnquiryTypeIcon = (type?: string) => {
+    switch (type) {
+      case 'buy':
+        return 'shopping-cart';
+      case 'sell':
+        return 'attach-money';
+      default:
+        return 'info';
+    }
+  };
+
+  const renderItem = ({item}: {item: Enquiry}) => {
+    const title = item.propertyName || item.title;
+    
+    const propertyDetails = [];
+    if (item.propertyType) {
+      propertyDetails.push(item.propertyType);
+    }
+    if (item.propertyArea) {
+      propertyDetails.push(item.propertyArea);
+    }
+    if (item.propertyLocation) {
+      propertyDetails.push(item.propertyLocation);
+    }
+    if (item.propertyPrice) {
+      propertyDetails.push(item.propertyPrice);
+    }
+    
+    const descriptionText = propertyDetails.length > 0 
+      ? propertyDetails.join(' • ') 
+      : item.description || '';
+
+    return (
+      <Card
+        title={title}
+        description={descriptionText}
+        image={item.image}
+        date={item.date}
+        time={item.time}
+        onPress={() => handleEnquiryPress(item)}
+        badge={
+          item.enquiryType ? (
+            (() => {
+              const enquiryColor = getEnquiryTypeColor(item.enquiryType);
+              return (
+                <View
+                  style={[
+                    styles.enquiryTypeBadge,
+                    {backgroundColor: enquiryColor + '20'},
+                  ]}>
+                  <Icon
+                    name={getEnquiryTypeIcon(item.enquiryType)}
+                    size={20}
+                    color={enquiryColor}
+                  />
+                  <Text style={[styles.enquiryTypeText, {color: enquiryColor}]}>
+                    {item.enquiryType === 'buy' ? 'BUY' : 'SELL'}
+                  </Text>
+                </View>
+              );
+            })()
+          ) : undefined
+        }
+      />
+    );
+  };
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -90,20 +189,46 @@ export const PastEnquiriesScreen: React.FC<PastEnquiriesScreenProps> = ({
   );
 
   return (
-    <SafeAreaView
+    <View
       style={[styles.container, {backgroundColor: theme.colors.background}]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
       <View style={styles.headerContainer}>
-        <View style={[styles.header, {borderBottomColor: theme.colors.border}]}>
-          <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-            Past Enquiries
-          </Text>
-          <Text
-            style={[
-              styles.headerSubtitle,
-              {color: theme.colors.textSecondary},
-            ]}>
-            Your property enquiries
-          </Text>
+        <View
+          style={[
+            styles.header,
+            {
+              borderBottomColor: theme.colors.border,
+              paddingTop: insets.top,
+            },
+          ]}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
+                Past Enquiries
+              </Text>
+              <Text
+                style={[
+                  styles.headerSubtitle,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                Your property enquiries
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                const rootNav = getRootNavigation(navigation);
+                rootNav.navigate('Profile');
+              }}
+              style={styles.profileButton}>
+              <Image
+                source={{uri: sampleProfileImage}}
+                style={styles.profileImage}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       <FlatList
@@ -124,7 +249,7 @@ export const PastEnquiriesScreen: React.FC<PastEnquiriesScreenProps> = ({
           />
         }
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -141,6 +266,32 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomWidth: 1,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  profileButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
   headerTitle: {
     fontSize: 32,
     fontWeight: '800',
@@ -153,7 +304,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 24,
-    paddingBottom: 100,
+    paddingBottom: 180,
   },
   emptyList: {
     flex: 1,
@@ -169,5 +320,18 @@ const styles = StyleSheet.create({
     marginTop: 20,
     opacity: 0.6,
     fontWeight: '500',
+  },
+  enquiryTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  enquiryTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });

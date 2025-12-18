@@ -69,36 +69,43 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
 
         <View style={styles.form}>
           <View style={styles.imageContainer}>
-            <TouchableOpacity
+            <View
               style={[
                 styles.imagePicker,
                 {
                   backgroundColor: theme.colors.surface,
                   borderColor: theme.colors.border,
                 },
-              ]}
-              onPress={handleImagePicker}>
-              {profileImage ? (
-                <Image
-                  source={{uri: profileImage}}
-                  style={styles.profileImage}
-                />
-              ) : (
-                <View style={styles.placeholderContainer}>
-                  <Icon
-                    name="camera-alt"
-                    size={48}
-                    color={theme.colors.textSecondary}
-                  />
-                  <Text
-                    style={[
-                      styles.placeholderText,
-                      {color: theme.colors.textSecondary},
-                    ]}>
-                    Add Photo
-                  </Text>
-                </View>
-              )}
+              ]}>
+              <View style={styles.imageContentWrapper}>
+                <TouchableOpacity
+                  onPress={handleImagePicker}
+                  activeOpacity={0.8}
+                  style={styles.imageTouchable}>
+                  {profileImage ? (
+                    <Image
+                      source={{uri: profileImage}}
+                      style={styles.profileImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.placeholderContainer}>
+                      <Icon
+                        name="camera-alt"
+                        size={48}
+                        color={theme.colors.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.placeholderText,
+                          {color: theme.colors.textSecondary},
+                        ]}>
+                        Add Photo
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 style={[
                   styles.editIcon,
@@ -108,7 +115,7 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
                 activeOpacity={0.8}>
                 <Icon name="edit" size={18} color="#FFFFFF" />
               </TouchableOpacity>
-            </TouchableOpacity>
+            </View>
           </View>
 
           <Input
@@ -166,6 +173,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
     overflow: 'visible',
+    zIndex: 1,
   },
   imagePicker: {
     width: 120,
@@ -177,10 +185,23 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     position: 'relative',
   },
+  imageContentWrapper: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+    overflow: 'hidden',
+  },
+  imageTouchable: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 60,
+  },
   profileImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    borderRadius: 60,
   },
   placeholderContainer: {
     alignItems: 'center',
@@ -192,14 +213,14 @@ const styles = StyleSheet.create({
   },
   editIcon: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    bottom: -4,
+    right: -4,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
     zIndex: 10,
     shadowColor: '#000',
@@ -207,7 +228,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },

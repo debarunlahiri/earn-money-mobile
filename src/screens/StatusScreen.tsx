@@ -4,13 +4,18 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  SafeAreaView,
   RefreshControl,
+  StatusBar,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Card} from '../components/Card';
 import {Status} from '../types';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+
+const sampleProfileImage = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400';
 
 const mockStatuses: Status[] = [
   {
@@ -85,8 +90,17 @@ interface StatusScreenProps {
   navigation: any;
 }
 
+const getRootNavigation = (navigation: any): any => {
+  let nav = navigation;
+  while (nav.getParent()) {
+    nav = nav.getParent();
+  }
+  return nav;
+};
+
 export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
-  const {theme} = useTheme();
+  const {theme, isDark} = useTheme();
+  const insets = useSafeAreaInsets();
   const [statuses] = useState<Status[]>(mockStatuses);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -116,25 +130,46 @@ export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
     }
   };
 
-  const renderItem = ({item}: {item: Status}) => (
-    <Card
-      title={item.title}
-      description={item.description}
-      image={item.image}
-      date={item.date}
-      time={item.time}
-      onPress={() => handleStatusPress(item)}
-      badge={
-        <View
-          style={[
-            styles.statusBadge,
-            {backgroundColor: getStatusColor(item.status)},
-          ]}>
-          <Text style={styles.badgeText}>{item.status}</Text>
-        </View>
-      }
-    />
-  );
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'Active':
+        return 'check-circle';
+      case 'Completed':
+        return 'done-all';
+      case 'Pending':
+        return 'schedule';
+      case 'Cancelled':
+        return 'cancel';
+      default:
+        return 'info';
+    }
+  };
+
+  const renderItem = ({item}: {item: Status}) => {
+    const statusColor = getStatusColor(item.status);
+    return (
+      <Card
+        title={item.title}
+        description={item.description}
+        image={item.image}
+        date={item.date}
+        time={item.time}
+        onPress={() => handleStatusPress(item)}
+        badge={
+          <View
+            style={[
+              styles.statusBadge,
+              {backgroundColor: statusColor + '20'},
+            ]}>
+            <Icon name={getStatusIcon(item.status)} size={20} color={statusColor} />
+            <Text style={[styles.statusText, {color: statusColor}]}>
+              {item.status}
+            </Text>
+          </View>
+        }
+      />
+    );
+  };
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -146,20 +181,46 @@ export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
   );
 
   return (
-    <SafeAreaView
+    <View
       style={[styles.container, {backgroundColor: theme.colors.background}]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
       <View style={styles.headerContainer}>
-        <View style={[styles.header, {borderBottomColor: theme.colors.border}]}>
-          <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-            Status
-          </Text>
-          <Text
-            style={[
-              styles.headerSubtitle,
-              {color: theme.colors.textSecondary},
-            ]}>
-            Recent updates
-          </Text>
+        <View
+          style={[
+            styles.header,
+            {
+              borderBottomColor: theme.colors.border,
+              paddingTop: insets.top,
+            },
+          ]}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
+                Status
+              </Text>
+              <Text
+                style={[
+                  styles.headerSubtitle,
+                  {color: theme.colors.textSecondary},
+                ]}>
+                Recent updates
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                const rootNav = getRootNavigation(navigation);
+                rootNav.navigate('Profile');
+              }}
+              style={styles.profileButton}>
+              <Image
+                source={{uri: sampleProfileImage}}
+                style={styles.profileImage}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       <FlatList
@@ -180,7 +241,7 @@ export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
           />
         }
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -197,6 +258,32 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomWidth: 1,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  profileButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
   headerTitle: {
     fontSize: 32,
     fontWeight: '800',
@@ -209,7 +296,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 24,
-    paddingBottom: 100,
+    paddingBottom: 180,
   },
   emptyList: {
     flex: 1,
@@ -227,21 +314,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    borderRadius: 20,
   },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    color: '#FFFFFF',
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
   },
 });

@@ -22,21 +22,25 @@ npm install
 ## Running the Application
 
 ### Start the development server:
+
 ```bash
 npm start
 ```
 
 ### Run on Android:
+
 ```bash
 npm run android
 ```
 
 ### Run on iOS:
+
 ```bash
 npm run ios
 ```
 
 ### Run on Web:
+
 ```bash
 npm run web
 ```
@@ -102,25 +106,73 @@ earn-money-mobile/
 The app uses TypeScript for type safety and includes ESLint for code quality.
 
 To check for linting errors:
+
 ```bash
 npm run lint
 ```
 
 ## Building for Production
 
-### Android:
+### Option 1: EAS Build (Recommended - Cloud Build)
+
+This builds your APK on Expo's cloud servers, avoiding all local environment issues:
+
 ```bash
+# Install EAS CLI globally if not installed
+npm install -g eas-cli
+
+# Login to Expo (if not already)
+eas login
+
+# Build APK using the "preview" profile
+eas build --platform android --profile preview
+```
+
+This will take ~15-20 minutes but **it just works**. You'll get a download link when it's done.
+
+> **Note:** The `preview` profile is configured in `eas.json` to output an APK. The `production` profile outputs an AAB (App Bundle) for Play Store.
+
+---
+
+### Option 2: Local Build (Clean Build)
+
+If you prefer a local build, do a **complete clean** first to avoid cached issues:
+
+```bash
+# Step 1: Clean everything
+rm -rf node_modules
+rm -rf android/.gradle
+rm -rf android/app/build
+rm -rf android/build
+
+# Step 2: Reinstall dependencies
+npm install
+
+# Step 3: Regenerate the native android folder using Expo prebuild
+npx expo prebuild --clean --platform android
+
+# Step 4: Build the APK
 cd android
 ./gradlew assembleRelease
 ```
 
+The APK will be at: `android/app/build/outputs/apk/release/app-release.apk`
+
+---
+
 ### iOS:
+
 ```bash
 cd ios
 xcodebuild -workspace YourApp.xcworkspace -scheme YourApp -configuration Release
 ```
 
+Or use EAS Build:
+
+```bash
+eas build --platform ios --profile preview
+```
+
 ## License
 
 Private
-

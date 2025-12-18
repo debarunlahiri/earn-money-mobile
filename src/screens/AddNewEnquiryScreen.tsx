@@ -4,16 +4,20 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
-  Alert,
   PanResponder,
   Dimensions,
+  StatusBar,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Button} from '../components/Button';
 import {Input} from '../components/Input';
+import {Dialog} from '../components/Dialog';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {INDIA_STATES} from '../data/indiaStates';
+import {INDIA_CITIES, getCitiesByState} from '../data/indiaCities';
+import {getSectorsByCity} from '../data/indiaSectors';
 
 interface AddNewEnquiryScreenProps {
   navigation: any;
@@ -27,7 +31,8 @@ const MAX_BUDGET = 10000000;
 export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   navigation,
 }) => {
-  const {theme} = useTheme();
+  const {theme, isDark} = useTheme();
+  const insets = useSafeAreaInsets();
   const [enquiryFor, setEnquiryFor] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [email, setEmail] = useState('');
@@ -44,6 +49,70 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     width: SLIDER_WIDTH,
     pageX: 0,
   });
+
+  // Location dropdown states
+  const [selectedState, setSelectedState] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedSector, setSelectedSector] = useState('');
+  const [showStatePicker, setShowStatePicker] = useState(false);
+  const [showCityPicker, setShowCityPicker] = useState(false);
+  const [showSectorPicker, setShowSectorPicker] = useState(false);
+
+  // Dialog states
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState('');
+  const [dialogMessage, setDialogMessage] = useState('');
+  const [dialogType, setDialogType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
+  const [dialogOnConfirm, setDialogOnConfirm] = useState<(() => void) | undefined>(undefined);
+
+  // Get sorted states alphabetically
+  const sortedStates = [...INDIA_STATES].sort((a, b) => a.name.localeCompare(b.name));
+
+  // Get filtered and sorted cities and sectors based on selection
+  const filteredCities = selectedState 
+    ? getCitiesByState(selectedState).sort((a, b) => a.name.localeCompare(b.name)) 
+    : [];
+  const filteredSectors = selectedCity 
+    ? getSectorsByCity(selectedCity).sort((a, b) => a.name.localeCompare(b.name)) 
+    : [];
+
+  // Get display names for selected values
+  const getStateName = (stateId: string) => {
+    const state = INDIA_STATES.find(s => s.id === stateId);
+    return state ? state.name : '';
+  };
+
+  const getCityName = (cityId: string) => {
+    const city = INDIA_CITIES.find(c => c.id === cityId);
+    return city ? city.name : '';
+  };
+
+  const getSectorName = (sectorId: string) => {
+    const sectors = selectedCity ? getSectorsByCity(selectedCity) : [];
+    const sector = sectors.find(s => s.id === sectorId);
+    return sector ? sector.name : '';
+  };
+
+  // Handle state change - reset city and sector
+  const handleStateChange = (stateId: string) => {
+    setSelectedState(stateId);
+    setSelectedCity('');
+    setSelectedSector('');
+    setShowStatePicker(false);
+  };
+
+  // Handle city change - reset sector
+  const handleCityChange = (cityId: string) => {
+    setSelectedCity(cityId);
+    setSelectedSector('');
+    setShowCityPicker(false);
+  };
+
+  // Handle sector change
+  const handleSectorChange = (sectorId: string) => {
+    setSelectedSector(sectorId);
+    setShowSectorPicker(false);
+  };
 
   const propertySearchOptions = ['Sale', 'Purchase'];
 
@@ -127,6 +196,19 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     },
   });
 
+  const showDialog = (
+    message: string,
+    title?: string,
+    type: 'info' | 'success' | 'error' | 'warning' = 'info',
+    onConfirm?: () => void,
+  ) => {
+    setDialogTitle(title || '');
+    setDialogMessage(message);
+    setDialogType(type);
+    setDialogOnConfirm(onConfirm);
+    setDialogVisible(true);
+  };
+
   const handleSubmit = () => {
     if (
       enquiryFor.trim() &&
@@ -134,21 +216,32 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
       propertySearchFor &&
       propertySearchingIn.trim()
     ) {
-      Alert.alert('Success', 'Enquiry submitted successfully!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      showDialog(
+        'Enquiry submitted successfully!',
+        'Success',
+        'success',
+        () => navigation.goBack(),
+      );
     } else {
-      Alert.alert('Error', 'Please fill in all required fields');
+      showDialog('Please fill in all required fields', 'Error', 'error');
     }
   };
 
   return (
-    <SafeAreaView
+    <View
       style={[styles.container, {backgroundColor: theme.colors.background}]}>
-      <View style={[styles.header, {borderBottomColor: theme.colors.border}]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
+      <View
+        style={[
+          styles.header,
+          {
+            borderBottomColor: theme.colors.border,
+            paddingTop: insets.top,
+          },
+        ]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
@@ -246,10 +339,8 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                   style={[
                     styles.pickerItem,
                     {
-                      backgroundColor:
-                        propertySearchFor === option
-                          ? `${theme.colors.primary}20`
-                          : theme.colors.surface,
+                      backgroundColor: theme.colors.surface,
+                      borderBottomColor: theme.colors.border,
                     },
                   ]}
                   onPress={() => {
@@ -267,9 +358,6 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                     ]}>
                     {option}
                   </Text>
-                  {propertySearchFor === option && (
-                    <Icon name="check" size={20} color={theme.colors.primary} />
-                  )}
                 </TouchableOpacity>
               ))}
             </View>
@@ -288,6 +376,227 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
               />
             }
           />
+
+          {/* State Dropdown */}
+          <TouchableOpacity
+            onPress={() => {
+              setShowStatePicker(!showStatePicker);
+              setShowCityPicker(false);
+              setShowSectorPicker(false);
+            }}
+            activeOpacity={1}>
+            <Input
+              label="State *"
+              value={getStateName(selectedState)}
+              placeholder="Select state"
+              editable={false}
+              pointerEvents="none"
+              leftIcon={
+                <Icon
+                  name="map"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              }
+              rightIcon={
+                <Icon
+                  name="arrow-drop-down"
+                  size={24}
+                  color={theme.colors.textSecondary}
+                />
+              }
+            />
+          </TouchableOpacity>
+
+          {showStatePicker && (
+            <View
+              style={[
+                styles.pickerContainer,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  borderWidth: 1,
+                },
+              ]}>
+              <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
+                {sortedStates.map(state => (
+                  <TouchableOpacity
+                    key={state.id}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.pickerItem,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderBottomColor: theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => handleStateChange(state.id)}>
+                    <Text
+                      style={[
+                        styles.pickerText,
+                        {
+                          color: theme.colors.text,
+                          fontWeight:
+                            selectedState === state.id ? '600' : '400',
+                        },
+                      ]}>
+                      {state.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* City Dropdown */}
+          <TouchableOpacity
+            onPress={() => {
+              if (selectedState) {
+                setShowCityPicker(!showCityPicker);
+                setShowStatePicker(false);
+                setShowSectorPicker(false);
+              } else {
+                showDialog('Please select a state first', undefined, 'info');
+              }
+            }}
+            activeOpacity={1}>
+            <Input
+              label="City *"
+              value={getCityName(selectedCity)}
+              placeholder={selectedState ? "Select city" : "Select state first"}
+              editable={false}
+              pointerEvents="none"
+              leftIcon={
+                <Icon
+                  name="location-city"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              }
+              rightIcon={
+                <Icon
+                  name="arrow-drop-down"
+                  size={24}
+                  color={theme.colors.textSecondary}
+                />
+              }
+            />
+          </TouchableOpacity>
+
+          {showCityPicker && filteredCities.length > 0 && (
+            <View
+              style={[
+                styles.pickerContainer,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  borderWidth: 1,
+                },
+              ]}>
+              <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
+                {filteredCities.map(city => (
+                  <TouchableOpacity
+                    key={city.id}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.pickerItem,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderBottomColor: theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => handleCityChange(city.id)}>
+                    <Text
+                      style={[
+                        styles.pickerText,
+                        {
+                          color: theme.colors.text,
+                          fontWeight:
+                            selectedCity === city.id ? '600' : '400',
+                        },
+                      ]}>
+                      {city.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Sector Dropdown */}
+          <TouchableOpacity
+            onPress={() => {
+              if (selectedCity) {
+                setShowSectorPicker(!showSectorPicker);
+                setShowStatePicker(false);
+                setShowCityPicker(false);
+              } else {
+                showDialog('Please select a city first', undefined, 'info');
+              }
+            }}
+            activeOpacity={1}>
+            <Input
+              label="Sector/Locality"
+              value={getSectorName(selectedSector)}
+              placeholder={selectedCity ? "Select sector (optional)" : "Select city first"}
+              editable={false}
+              pointerEvents="none"
+              leftIcon={
+                <Icon
+                  name="apartment"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              }
+              rightIcon={
+                <Icon
+                  name="arrow-drop-down"
+                  size={24}
+                  color={theme.colors.textSecondary}
+                />
+              }
+            />
+          </TouchableOpacity>
+
+          {showSectorPicker && filteredSectors.length > 0 && (
+            <View
+              style={[
+                styles.pickerContainer,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  borderWidth: 1,
+                },
+              ]}>
+              <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
+                {filteredSectors.map(sector => (
+                  <TouchableOpacity
+                    key={sector.id}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.pickerItem,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderBottomColor: theme.colors.border,
+                      },
+                    ]}
+                    onPress={() => handleSectorChange(sector.id)}>
+                    <Text
+                      style={[
+                        styles.pickerText,
+                        {
+                          color: theme.colors.text,
+                          fontWeight:
+                            selectedSector === sector.id ? '600' : '400',
+                        },
+                      ]}>
+                      {sector.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           <View style={styles.budgetContainer}>
             <Text style={[styles.label, {color: theme.colors.text}]}>
@@ -398,7 +707,16 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
           />
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      <Dialog
+        visible={dialogVisible}
+        title={dialogTitle}
+        message={dialogMessage}
+        type={dialogType}
+        onClose={() => setDialogVisible(false)}
+        onConfirm={dialogOnConfirm}
+      />
+    </View>
   );
 };
 
@@ -409,7 +727,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     borderBottomWidth: 1,
   },
   backButton: {
@@ -437,27 +755,28 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pickerContainer: {
-    borderRadius: 14,
-    marginTop: -8,
+    borderRadius: 8,
+    marginTop: -36,
     marginBottom: 16,
-    padding: 4,
     borderWidth: 1,
-    elevation: 8,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    maxHeight: 200,
+    overflow: 'hidden',
+  },
+  pickerScrollView: {
     maxHeight: 200,
   },
   pickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 10,
-    marginVertical: 2,
-    minHeight: 48,
+    minHeight: 44,
+    borderBottomWidth: 1,
   },
   pickerText: {
     fontSize: 16,

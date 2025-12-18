@@ -4,9 +4,10 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Button} from '../components/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -23,7 +24,8 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
   navigation,
   route,
 }) => {
-  const {theme} = useTheme();
+  const {theme, isDark} = useTheme();
+  const insets = useSafeAreaInsets();
   const {status}: {status: Status} = route.params;
 
   const handleCall = () => {
@@ -76,9 +78,19 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, {backgroundColor: theme.colors.background}]}>
-      <View style={[styles.header, {borderBottomColor: theme.colors.border}]}>
+    <View style={[styles.container, {backgroundColor: theme.colors.background}]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background}
+      />
+      <View
+        style={[
+          styles.header,
+          {
+            borderBottomColor: theme.colors.border,
+            paddingTop: insets.top,
+          },
+        ]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
@@ -110,25 +122,27 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
           </Text>
 
           <View style={styles.metaContainer}>
-            <View style={styles.metaItem}>
+            <View style={[styles.metaCard, {backgroundColor: theme.colors.surface}]}>
               <Icon
                 name="calendar-today"
-                size={16}
-                color={theme.colors.textSecondary}
+                size={18}
+                color={theme.colors.primary}
+                style={{marginRight: 10}}
               />
               <Text
-                style={[styles.metaText, {color: theme.colors.textSecondary}]}>
+                style={[styles.metaText, {color: theme.colors.text}]}>
                 {formatDate(status.date)}
               </Text>
             </View>
-            <View style={styles.metaItem}>
+            <View style={[styles.metaCard, styles.metaCardLast, {backgroundColor: theme.colors.surface}]}>
               <Icon
                 name="access-time"
-                size={16}
-                color={theme.colors.textSecondary}
+                size={18}
+                color={theme.colors.primary}
+                style={{marginRight: 10}}
               />
               <Text
-                style={[styles.metaText, {color: theme.colors.textSecondary}]}>
+                style={[styles.metaText, {color: theme.colors.text}]}>
                 {formatTime(status.time)}
               </Text>
             </View>
@@ -137,11 +151,13 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
           <View
             style={[styles.infoCard, {backgroundColor: theme.colors.surface}]}>
             <View style={styles.infoRow}>
-              <Icon
-                name="person"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
+              <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                <Icon
+                  name="person"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[
@@ -157,7 +173,13 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
             </View>
 
             <View style={styles.infoRow}>
-              <Icon name="phone" size={20} color={theme.colors.textSecondary} />
+              <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                <Icon
+                  name="phone"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[
@@ -174,11 +196,13 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
 
             {status.email && (
               <View style={styles.infoRow}>
-                <Icon
-                  name="email"
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
+                <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                  <Icon
+                    name="email"
+                    size={20}
+                    color={theme.colors.primary}
+                  />
+                </View>
                 <View style={styles.infoContent}>
                   <Text
                     style={[
@@ -195,11 +219,13 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
             )}
 
             <View style={styles.infoRow}>
-              <Icon
-                name="search"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
+              <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                <Icon
+                  name="search"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[
@@ -215,11 +241,13 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
             </View>
 
             <View style={styles.infoRow}>
-              <Icon
-                name="location-on"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
+              <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                <Icon
+                  name="location-on"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[
@@ -234,12 +262,14 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
               </View>
             </View>
 
-            <View style={styles.infoRow}>
-              <Icon
-                name="attach-money"
-                size={20}
-                color={theme.colors.textSecondary}
-              />
+            <View style={[styles.infoRow, styles.infoRowLast]}>
+              <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+                <Icon
+                  name="attach-money"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+              </View>
               <View style={styles.infoContent}>
                 <Text
                   style={[
@@ -256,16 +286,6 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
             </View>
           </View>
 
-          <View style={[styles.section, {borderTopColor: theme.colors.border}]}>
-            <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-              Description
-            </Text>
-            <Text
-              style={[styles.description, {color: theme.colors.textSecondary}]}>
-              {status.description}
-            </Text>
-          </View>
-
           <View style={styles.actionButtons}>
             <Button
               title="Call"
@@ -274,19 +294,18 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
               icon={
                 <Icon name="phone" size={20} color={theme.colors.primary} />
               }
-              style={{flex: 1, marginRight: 8}}
+              style={{flex: 1, marginRight: 12}}
             />
             <Button
               title="WhatsApp"
               onPress={handleWhatsApp}
-              variant="outline"
-              icon={<Icon name="chat" size={20} color={theme.colors.primary} />}
-              style={{flex: 1, marginLeft: 8}}
+              icon={<Icon name="chat" size={20} color="#FFFFFF" />}
+              style={{flex: 1}}
             />
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -313,10 +332,11 @@ const styles = StyleSheet.create({
     width: 40,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
   content: {
     padding: 20,
+    paddingTop: 24,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -325,7 +345,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   statusText: {
     fontSize: 14,
@@ -333,22 +353,31 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 16,
+    fontSize: 28,
+    fontWeight: '800',
+    marginBottom: 20,
+    letterSpacing: -0.5,
+    lineHeight: 36,
   },
   metaContainer: {
     flexDirection: 'row',
     marginBottom: 24,
   },
-  metaItem: {
+  metaCard: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginRight: 12,
+  },
+  metaCardLast: {
+    marginRight: 0,
   },
   metaText: {
     fontSize: 14,
-    marginLeft: 6,
+    fontWeight: '600',
   },
   section: {
     paddingTop: 24,
@@ -365,34 +394,52 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   infoCard: {
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: 16,
   },
+  infoRowLast: {
+    marginBottom: 0,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
   infoContent: {
     flex: 1,
-    marginLeft: 12,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    marginBottom: 4,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   infoValue: {
     fontSize: 16,
     fontWeight: '600',
+    lineHeight: 22,
   },
   actionButtons: {
     flexDirection: 'row',
-    marginTop: 32,
+    marginTop: 8,
     marginBottom: 16,
-  },
-  actionButton: {
-    marginHorizontal: 0,
   },
 });

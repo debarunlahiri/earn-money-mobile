@@ -11,6 +11,8 @@ import {StatusDetailsScreen} from '../screens/StatusDetailsScreen';
 import {SellBuySelectionScreen} from '../screens/SellBuySelectionScreen';
 import {PropertyFormScreen} from '../screens/PropertyFormScreen';
 import {AddNewEnquiryScreen} from '../screens/AddNewEnquiryScreen';
+import {ProfileScreen} from '../screens/ProfileScreen';
+import {SettingsScreen} from '../screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,8 +24,20 @@ export const AppNavigator = () => {
         screenOptions={{
           headerShown: false,
         }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{
+            contentStyle: {backgroundColor: 'transparent'},
+          }}
+        />
+        <Stack.Screen
+          name="Register"
+          component={RegisterScreen}
+          options={{
+            contentStyle: {backgroundColor: 'transparent'},
+          }}
+        />
         <Stack.Screen
           name="OTPVerification"
           component={OTPVerificationScreen}
@@ -41,6 +55,8 @@ export const AppNavigator = () => {
         />
         <Stack.Screen name="PropertyForm" component={PropertyFormScreen} />
         <Stack.Screen name="AddNewEnquiry" component={AddNewEnquiryScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
