@@ -27,7 +27,7 @@ export const FAB: React.FC<FABProps> = ({onPress, icon = 'add', style}) => {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 40,
     right: 24,
     width: 56,
     height: 56,

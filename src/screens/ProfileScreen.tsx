@@ -10,6 +10,7 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
+import {BlurView} from '@react-native-community/blur';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -17,6 +18,7 @@ import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 import {FallingRupees} from '../components/FallingRupee';
 import {useAuth} from '../context/AuthContext';
 import {getProfile, ProfileData} from '../services/api';
+import {Dialog} from '../components/Dialog';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -32,6 +34,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSensitiveData, setShowSensitiveData] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -109,20 +112,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
         translucent
         backgroundColor="transparent"
       />
-      <Animated.View
+      <View
         style={[
           styles.header,
           {
-            top: insets.top,
-            paddingTop: 20,
-            transform: [{translateY: headerTranslateY}],
+            paddingTop: insets.top + 10,
           },
         ]}>
+        {/* Blur background */}
+        <BlurView
+          style={StyleSheet.absoluteFillObject}
+          blurType="dark"
+          blurAmount={20}
+          reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+        />
+        {/* Subtle overlay for better contrast */}
+        <View style={styles.headerOverlay} />
         <FallingRupees count={12} />
-          <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-            Profile
-          </Text>
-      </Animated.View>
+        <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
+          Profile
+        </Text>
+      </View>
       <ScrollView
         contentContainerStyle={[styles.scrollContent, {paddingTop: insets.top + 100}]}
         showsVerticalScrollIndicator={false}
@@ -256,7 +266,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
             <View style={styles.menuItemGlassInnerBorder} />
         <TouchableOpacity
               style={styles.menuItemGlassContent}
-          onPress={logout}>
+          onPress={() => setShowLogoutDialog(true)}>
           <View style={styles.menuItemLeft}>
             <View style={[styles.iconContainer, {backgroundColor: 'rgba(255, 80, 80, 0.15)'}]}>
               <Icon name="logout" size={20} color="#FF5050" />
@@ -270,6 +280,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog
+        visible={showLogoutDialog}
+        type="logout"
+        title="Goodbye!"
+        message="Are you sure you want to logout?"
+        showCancel={true}
+        cancelText="Stay"
+        confirmText="Logout"
+        onClose={() => setShowLogoutDialog(false)}
+        onConfirm={logout}
+      />
     </ImageBackground>
   );
 };
@@ -282,23 +305,30 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
   header: {
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingBottom: 16,
     zIndex: 100,
     overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(212, 175, 55, 0.2)',
   },
   headerTitle: {
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -1,
-    marginTop: 20,
+    marginTop: 10,
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 100,
     paddingHorizontal: 24,
   },
   profileSection: {

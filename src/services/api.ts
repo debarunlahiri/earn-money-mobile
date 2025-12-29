@@ -13,6 +13,7 @@ export interface UserData {
   mobile: string | null;
   token: number;
   userid: number;
+  is_new?: string;
 }
 
 export interface VerifyOTPResponse {

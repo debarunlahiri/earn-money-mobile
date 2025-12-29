@@ -67,12 +67,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
           tabBarActiveTintColor: theme.colors.tabActive,
           tabBarInactiveTintColor: theme.colors.tabInactive,
           tabBarStyle: {
-            backgroundColor: 'rgba(26, 26, 26, 0.8)',
-            borderTopColor: 'rgba(212, 175, 55, 0.3)',
-            borderTopWidth: 1,
+            backgroundColor: 'transparent',
+            borderTopWidth: 0,
             paddingBottom: 8,
             paddingTop: 8,
             height: 60,
+            elevation: 0,
           },
           tabBarLabelStyle: {
             fontSize: 12,

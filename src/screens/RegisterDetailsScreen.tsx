@@ -327,13 +327,12 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
         });
         
         if (response.status === 'success' || response.status_code === 200) {
-          // Update userData to mark profile as complete
-          if (userData) {
-            await login(userData);
-          } else {
-            await login();
-          }
-          navigation.replace('Home');
+          // Update userData with username and mobile to mark profile as complete
+          const updatedUserData = userData 
+            ? {...userData, username: userName, mobile: mobileNumber} 
+            : {username: userName, mobile: mobileNumber};
+          await login(updatedUserData);
+          // Auth state change will automatically navigate to Home screen
         } else {
           Alert.alert('Registration Failed', response.message || 'Please try again.');
         }
@@ -850,11 +849,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 40,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   stepItem: {
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 70,
   },
   stepCircle: {
     width: 48,
@@ -877,9 +876,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   stepConnector: {
-    width: 50,
+    width: 40,
     height: 3,
-    marginHorizontal: 12,
+    marginHorizontal: 8,
     marginBottom: 34,
     borderRadius: 2,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

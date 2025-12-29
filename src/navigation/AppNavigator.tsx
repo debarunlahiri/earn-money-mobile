@@ -42,14 +42,18 @@ export const AppNavigator = () => {
     );
   }
 
-  // Check if profile is incomplete (username is null indicates incomplete profile)
-  const isProfileIncomplete = isAuthenticated && userData && !userData.username;
+  // Check if profile is incomplete using is_new flag from API
+  const isProfileIncomplete = isAuthenticated && userData && userData.is_new === 'yes';
 
   return (
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
+          animation: 'slide_from_right',
+          animationDuration: 250,
+          gestureEnabled: true,
+          gestureDirection: 'horizontal',
         }}>
         {!isAuthenticated ? (
           // Auth Stack - shown when not logged in

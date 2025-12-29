@@ -19,6 +19,7 @@ import {Button} from '../components/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {TextInput} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
+import {BlurView} from '@react-native-community/blur';
 import {FallingRupees} from '../components/FallingRupee';
 import {formatIndianPhoneNumber, isValidIndianPhoneNumber, formatPhoneNumberForDisplay, getFullPhoneNumber} from '../utils/phoneUtils';
 import {verifyMobile} from '../services/api';
@@ -511,6 +512,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               },
             ]}>
             <View style={styles.glassContainer}>
+              {/* Blur background */}
+              <BlurView
+                style={StyleSheet.absoluteFillObject}
+                blurType="dark"
+                blurAmount={20}
+                reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+              />
               <View style={styles.glassBaseLayer} />
               <View style={styles.glassFrostLayer} />
               <View style={styles.glassHighlight} />
@@ -609,7 +617,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               )}
             </View>
 
-            <View style={styles.footer}>
+            {/* <View style={styles.footer}>
               <Text
                 style={[styles.footerText, {color: theme.colors.textSecondary}]}>
                 New here?{' '}
@@ -619,7 +627,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                 onPress={() => navigation.navigate('Register')}>
                 Create Account
               </Text>
-            </View>
+            </View> */}
               </View>
             </View>
           </Animated.View>

@@ -80,20 +80,24 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
         const response = await verifyOTP(mobileNumber, otpString);
         
         if (response.status === 'success' && response.status_code === 200) {
-          // Store user data in AuthContext
-          if (response.userdata) {
-            await login(response.userdata);
-          }
+          // Store user data with is_new flag in AuthContext
+          const userDataWithFlag = {
+            username: response.userdata?.username ?? null,
+            mobile: response.userdata?.mobile || mobileNumber,
+            token: response.userdata?.token || 0,
+            userid: response.userdata?.userid || 0,
+            is_new: response.is_new,
+          };
+          await login(userDataWithFlag);
           
           // Check if user is new - redirect to RegisterDetails if profile is incomplete
           if (response.is_new === 'yes') {
             navigation.replace('RegisterDetails', {
               phoneNumber,
-              userData: response.userdata,
+              userData: userDataWithFlag,
             });
-          } else {
-            navigation.replace('Home');
           }
+          // If not new, auth state change will automatically show Home screen
         } else {
           Alert.alert('Error', response.message || 'Invalid OTP. Please try again.');
         }
@@ -346,11 +350,14 @@ const styles = StyleSheet.create({
   },
   otpContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 32,
+    gap: 8,
+    paddingHorizontal: 4,
   },
   otpInput: {
-    width: 50,
+    width: 48,
     height: 60,
     borderRadius: 12,
     borderWidth: 2,

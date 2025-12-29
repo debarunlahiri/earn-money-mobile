@@ -19,6 +19,7 @@ import {Button} from '../components/Button';
 import {TextInput} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {LinearGradient} from 'expo-linear-gradient';
+import {BlurView} from '@react-native-community/blur';
 import {FallingRupees} from '../components/FallingRupee';
 import {formatIndianPhoneNumber, isValidIndianPhoneNumber, formatPhoneNumberForDisplay, getFullPhoneNumber} from '../utils/phoneUtils';
 import {verifyMobile} from '../services/api';
@@ -511,6 +512,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({navigation}) => {
               },
             ]}>
             <View style={styles.glassContainer}>
+              {/* Blur background */}
+              <BlurView
+                style={StyleSheet.absoluteFillObject}
+                blurType="dark"
+                blurAmount={20}
+                reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+              />
               <View style={styles.glassBaseLayer} />
               <View style={styles.glassFrostLayer} />
               <View style={styles.glassHighlight} />

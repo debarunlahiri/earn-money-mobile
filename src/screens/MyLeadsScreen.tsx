@@ -10,7 +10,10 @@ import {
   ImageBackground,
   Animated,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
+import {BlurView} from '@react-native-community/blur';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -86,52 +89,161 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
     return `${day}/${month}/${year} at ${hour12}:${minutes} ${ampm}`;
   };
 
-  const renderItem = ({item}: {item: Lead}) => {
+  const handleCall = (mobile: string) => {
+    Linking.openURL(`tel:${mobile}`);
+  };
+
+  const handleWhatsApp = (mobile: string) => {
+    Linking.openURL(`whatsapp://send?phone=91${mobile}`);
+  };
+
+  const renderItem = ({item, index}: {item: Lead; index: number}) => {
+    const getInitials = (name: string) => {
+      return name
+        .split(' ')
+        .map(word => word[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    };
+
     return (
-      <TouchableOpacity
-        style={styles.leadCard}
-        activeOpacity={0.8}
-        onPress={() => {
-          navigation.navigate('LeadDetails', {lead: item});
-        }}>
-        <View style={styles.cardHeader}>
-          <View style={styles.nameContainer}>
-            <Icon name="person" size={20} color="#D4AF37" />
-            <Text style={styles.leadName}>{item.name}</Text>
-          </View>
-          <View style={styles.idBadge}>
-            <Text style={styles.idText}>#{item.id}</Text>
-          </View>
-        </View>
+      <View style={styles.leadCardWrapper}>
+        {/* Card with gradient border effect */}
+        <LinearGradient
+          colors={['rgba(212, 175, 55, 0.4)', 'rgba(212, 175, 55, 0.1)', 'rgba(212, 175, 55, 0.05)']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
+          style={styles.cardGradientBorder}>
+          <TouchableOpacity
+            style={styles.leadCard}
+            activeOpacity={0.95}
+            onPress={() => {
+              navigation.navigate('LeadDetails', {lead: item});
+            }}>
+            
+            {/* Header with gradient background */}
+            <LinearGradient
+              colors={['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.05)', 'transparent']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.cardHeaderGradient}>
+              
+              {/* Decorative elements */}
+              <View style={styles.decorativeCircle1} />
+              <View style={styles.decorativeCircle2} />
+              
+              <View style={styles.cardHeader}>
+                <View style={styles.nameContainer}>
+                  {/* Avatar with gradient */}
+                  <LinearGradient
+                    colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.avatarGradient}>
+                    <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+                  </LinearGradient>
+                  
+                  <View style={styles.nameTextContainer}>
+                    <Text style={styles.leadName} numberOfLines={1}>{item.name}</Text>
+                    <View style={styles.leadMetaRow}>
+                      <View style={styles.statusBadge}>
+                        <View style={styles.statusDot} />
+                        <Text style={styles.statusText}>New Lead</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Rank badge */}
+                <View style={styles.rankBadgeContainer}>
+                  <LinearGradient
+                    colors={['rgba(212, 175, 55, 0.3)', 'rgba(212, 175, 55, 0.1)']}
+                    style={styles.rankBadge}>
+                    <Text style={styles.rankText}>#{leads.length - index}</Text>
+                  </LinearGradient>
+                </View>
+              </View>
+            </LinearGradient>
 
-        <View style={styles.cardDivider} />
+            {/* Info Section */}
+            <View style={styles.cardBody}>
+              {/* Contact Row */}
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconContainer, styles.phoneIconBg]}>
+                  <Icon name="phone" size={16} color="#4CAF50" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Contact Number</Text>
+                  <Text style={styles.infoValue}>{item.mobile}</Text>
+                </View>
+                {/* Quick action buttons */}
+                <View style={styles.quickActions}>
+                  <TouchableOpacity 
+                    style={styles.actionBtn}
+                    onPress={() => handleCall(item.mobile)}>
+                    <Icon name="phone" size={16} color="#fff" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.actionBtn, styles.whatsappBtn]}
+                    onPress={() => handleWhatsApp(item.mobile)}>
+                    <Icon name="chat" size={16} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-        <View style={styles.cardBody}>
-          <View style={styles.infoRow}>
-            <Icon name="phone" size={16} color="#888" />
-            <Text style={styles.infoText}>{item.mobile}</Text>
-          </View>
+              {/* Divider with glow */}
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <View style={styles.dividerGlow} />
+              </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="location-on" size={16} color="#888" />
-            <Text style={styles.infoText} numberOfLines={2}>
-              {item.address}
-            </Text>
-          </View>
+              {/* Location Row */}
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconContainer, styles.locationIconBg]}>
+                  <Icon name="location-on" size={16} color="#2196F3" />
+                </View>
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Location</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>{item.address}</Text>
+                </View>
+              </View>
 
-          <View style={styles.infoRow}>
-            <Icon name="description" size={16} color="#888" />
-            <Text style={styles.infoText} numberOfLines={2}>
-              {item.requirement}
-            </Text>
-          </View>
-        </View>
+              {/* Requirement Row */}
+              <View style={styles.requirementContainer}>
+                <View style={styles.requirementHeader}>
+                  <View style={[styles.infoIconContainer, styles.requirementIconBg]}>
+                    <Icon name="description" size={16} color="#FF9800" />
+                  </View>
+                  <Text style={styles.requirementLabel}>Property Requirement</Text>
+                </View>
+                <View style={styles.requirementBox}>
+                  <Text style={styles.requirementText} numberOfLines={2}>
+                    {item.requirement}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-        <View style={styles.cardFooter}>
-          <Icon name="access-time" size={14} color="#666" />
-          <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
-        </View>
-      </TouchableOpacity>
+            {/* Footer with gradient */}
+            <LinearGradient
+              colors={['transparent', 'rgba(212, 175, 55, 0.05)']}
+              style={styles.cardFooter}>
+              <View style={styles.timestampContainer}>
+                <Icon name="access-time" size={14} color="rgba(212, 175, 55, 0.8)" />
+                <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.viewDetailsBtn}
+                onPress={() => navigation.navigate('LeadDetails', {lead: item})}>
+                <Text style={styles.viewDetailsText}>View Details</Text>
+                <Icon name="arrow-forward" size={16} color="#D4AF37" />
+              </TouchableOpacity>
+            </LinearGradient>
+            
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
     );
   };
 
@@ -172,15 +284,22 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
             translucent
             backgroundColor="transparent"
           />
-          <Animated.View
+          <View
             style={[
               styles.header,
               {
-                top: insets.top,
-                paddingTop: 20,
-                transform: [{translateY: headerTranslateY}],
+                paddingTop: insets.top + 10,
               },
             ]}>
+            {/* Blur background */}
+            <BlurView
+              style={StyleSheet.absoluteFillObject}
+              blurType="dark"
+              blurAmount={20}
+              reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+            />
+            {/* Subtle overlay for better contrast */}
+            <View style={styles.headerOverlay} />
             <FallingRupees count={10} />
             <TouchableOpacity
               onPress={() => navigation.goBack()}
@@ -191,25 +310,32 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
               My Leads
             </Text>
             <View style={styles.placeholder} />
-          </Animated.View>
+          </View>
         </>
       )}
 
       {hideHeader && (
-        <Animated.View
+        <View
           style={[
             styles.simpleHeader,
             {
-              top: insets.top,
-              paddingTop: 20,
-              transform: [{translateY: headerTranslateY}],
+              paddingTop: insets.top + 10,
             },
           ]}>
+          {/* Blur background */}
+          <BlurView
+            style={StyleSheet.absoluteFillObject}
+            blurType="dark"
+            blurAmount={20}
+            reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+          />
+          {/* Subtle overlay for better contrast */}
+          <View style={styles.headerOverlay} />
           <FallingRupees count={10} />
           <Text style={[styles.simpleHeaderTitle, {color: theme.colors.text}]}>
             My Leads
           </Text>
-        </Animated.View>
+        </View>
       )}
 
       {loading ? (
@@ -266,17 +392,24 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
+  headerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingBottom: 16,
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
     overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(212, 175, 55, 0.2)',
   },
   backButton: {
     padding: 8,
@@ -290,12 +423,15 @@ const styles = StyleSheet.create({
   },
   simpleHeader: {
     paddingHorizontal: 24,
-    marginBottom: 16,
+    paddingBottom: 16,
     position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     zIndex: 100,
     overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(212, 175, 55, 0.2)',
   },
   simpleHeaderTitle: {
     fontSize: 32,
@@ -330,13 +466,45 @@ const styles = StyleSheet.create({
     color: '#888',
     fontWeight: '600',
   },
+  // Card wrapper and gradient border
+  leadCardWrapper: {
+    marginBottom: 20,
+  },
+  cardGradientBorder: {
+    borderRadius: 24,
+    padding: 1.5,
+  },
   leadCard: {
-    backgroundColor: 'rgba(30, 30, 30, 0.9)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
+    backgroundColor: 'rgba(15, 15, 20, 0.98)',
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  
+  // Card header with gradient
+  cardHeaderGradient: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  decorativeCircle1: {
+    position: 'absolute',
+    top: -30,
+    right: -30,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    top: 20,
+    right: 30,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -348,55 +516,234 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  
+  // Avatar styles
+  avatarGradient: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#D4AF37',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1a1a1a',
+    letterSpacing: 1,
+  },
+  nameTextContainer: {
+    marginLeft: 14,
+    flex: 1,
+  },
   leadName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
-    marginLeft: 10,
+    color: '#ffffff',
+    letterSpacing: 0.3,
   },
-  idBadge: {
-    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+  leadMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#4CAF50',
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 11,
+    color: '#4CAF50',
+    fontWeight: '600',
+  },
+  
+  // Rank badge
+  rankBadgeContainer: {
+    marginLeft: 12,
+  },
+  rankBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.4)',
   },
-  idText: {
-    fontSize: 12,
+  rankText: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#D4AF37',
-    fontWeight: '600',
   },
-  cardDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: 12,
-  },
+  
+  // Card body
   cardBody: {
-    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: 12,
   },
-  infoText: {
-    fontSize: 14,
-    color: '#ccc',
-    marginLeft: 10,
+  infoIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  phoneIconBg: {
+    backgroundColor: 'rgba(76, 175, 80, 0.12)',
+  },
+  locationIconBg: {
+    backgroundColor: 'rgba(33, 150, 243, 0.12)',
+  },
+  requirementIconBg: {
+    backgroundColor: 'rgba(255, 152, 0, 0.12)',
+  },
+  infoContent: {
     flex: 1,
+    marginLeft: 12,
   },
+  infoLabel: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#ffffff',
+    marginTop: 3,
+    fontWeight: '500',
+  },
+  
+  // Quick action buttons
+  quickActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  whatsappBtn: {
+    backgroundColor: '#25D366',
+    shadowColor: '#25D366',
+  },
+  
+  // Divider
+  dividerContainer: {
+    height: 1,
+    marginVertical: 4,
+    position: 'relative',
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  dividerGlow: {
+    position: 'absolute',
+    left: '20%',
+    right: '20%',
+    height: 1,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+  },
+  
+  // Requirement section
+  requirementContainer: {
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 14,
+    padding: 14,
+  },
+  requirementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  requirementLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginLeft: 10,
+  },
+  requirementBox: {
+    backgroundColor: 'rgba(255, 152, 0, 0.05)',
+    borderRadius: 10,
+    padding: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF9800',
+  },
+  requirementText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontWeight: '400',
+    lineHeight: 20,
+  },
+  
+  // Card footer
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  timestampContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   dateText: {
     fontSize: 12,
-    color: '#666',
+    color: 'rgba(212, 175, 55, 0.7)',
     marginLeft: 6,
+    fontWeight: '500',
+  },
+  viewDetailsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+  },
+  viewDetailsText: {
+    fontSize: 12,
+    color: '#D4AF37',
+    fontWeight: '600',
+    marginRight: 4,
   },
   emptyContainer: {
     alignItems: 'center',

@@ -1,26 +1,28 @@
-import React from 'react';
+import React, {useRef, useEffect} from 'react';
 import {
   Modal,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform,
+  Dimensions,
 } from 'react-native';
 import {useTheme} from '../theme/ThemeContext';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import LottieView from 'lottie-react-native';
 
 interface DialogProps {
   visible: boolean;
   title?: string;
   message: string;
-  type?: 'info' | 'success' | 'error' | 'warning';
+  type?: 'info' | 'success' | 'error' | 'warning' | 'logout';
   onClose: () => void;
   onConfirm?: () => void;
   confirmText?: string;
   showCancel?: boolean;
   cancelText?: string;
 }
+
+const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
 export const Dialog: React.FC<DialogProps> = ({
   visible,
@@ -34,6 +36,13 @@ export const Dialog: React.FC<DialogProps> = ({
   cancelText = 'Cancel',
 }) => {
   const {theme} = useTheme();
+  const animationRef = useRef<LottieView>(null);
+
+  useEffect(() => {
+    if (visible && animationRef.current) {
+      animationRef.current.play();
+    }
+  }, [visible]);
 
   const getIconColor = () => {
     switch (type) {
@@ -43,8 +52,23 @@ export const Dialog: React.FC<DialogProps> = ({
         return theme.colors.error || '#F44336';
       case 'warning':
         return '#FF9800';
+      case 'logout':
+        return '#FF5050';
       default:
         return theme.colors.primary;
+    }
+  };
+
+  const getLottieSource = () => {
+    switch (type) {
+      case 'success':
+        return require('../../assets/animations/Success.json');
+      case 'error':
+        return require('../../assets/animations/error.json');
+      case 'logout':
+        return require('../../assets/animations/Bye-bye.json');
+      default:
+        return null;
     }
   };
 
@@ -54,6 +78,9 @@ export const Dialog: React.FC<DialogProps> = ({
     }
     onClose();
   };
+
+  const lottieSource = getLottieSource();
+  const showAnimation = lottieSource !== null;
 
   return (
     <Modal
@@ -74,17 +101,39 @@ export const Dialog: React.FC<DialogProps> = ({
               backgroundColor: theme.colors.surface,
             },
           ]}>
+          {showAnimation && (
+            <View style={styles.animationContainer}>
+              <LottieView
+                ref={animationRef}
+                source={lottieSource}
+                autoPlay
+                loop={type === 'logout'}
+                style={styles.animation}
+              />
+            </View>
+          )}
+
           {title ? (
-            <Text style={[styles.title, {color: theme.colors.text}]}>
+            <Text
+              style={[
+                styles.title,
+                {color: theme.colors.text},
+                showAnimation && styles.titleCentered,
+              ]}>
               {title}
             </Text>
           ) : null}
 
-          <Text style={[styles.message, {color: theme.colors.text}]}>
+          <Text
+            style={[
+              styles.message,
+              {color: theme.colors.text},
+              showAnimation && styles.messageCentered,
+            ]}>
             {message}
           </Text>
 
-          <View style={styles.buttonContainer}>
+          <View style={[styles.buttonContainer, showAnimation && styles.buttonContainerCentered]}>
             {showCancel && (
               <TouchableOpacity
                 style={[
@@ -131,26 +180,49 @@ const styles = StyleSheet.create({
   },
   dialog: {
     width: '100%',
-    maxWidth: 320,
-    borderRadius: 16,
+    maxWidth: 340,
+    borderRadius: 20,
     padding: 24,
+    alignItems: 'center',
+  },
+  animationContainer: {
+    width: 120,
+    height: 120,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  animation: {
+    width: 120,
+    height: 120,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 12,
     textAlign: 'left',
+    alignSelf: 'stretch',
+  },
+  titleCentered: {
+    textAlign: 'center',
   },
   message: {
     fontSize: 16,
     lineHeight: 24,
     textAlign: 'left',
     marginBottom: 24,
+    alignSelf: 'stretch',
+  },
+  messageCentered: {
+    textAlign: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
     width: '100%',
     justifyContent: 'flex-end',
+  },
+  buttonContainerCentered: {
+    justifyContent: 'center',
   },
   button: {
     paddingVertical: 14,
@@ -158,7 +230,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 90,
+    minWidth: 100,
   },
   cancelButton: {
     borderWidth: 1.5,
@@ -175,4 +247,3 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
