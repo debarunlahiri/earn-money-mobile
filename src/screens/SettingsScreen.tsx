@@ -6,74 +6,75 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  ImageBackground,
+  Animated,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useTheme} from '../theme/ThemeContext';
+import {useTheme, ThemeMode} from '../theme/ThemeContext';
+import {useAuth} from '../context/AuthContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import {FallingRupees} from '../components/FallingRupee';
+import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 
 interface SettingsScreenProps {
   navigation: any;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
-  const {theme, isDark} = useTheme();
+  const {theme, isDark, themeMode, setThemeMode} = useTheme();
+  const {logout} = useAuth();
   const insets = useSafeAreaInsets();
+  const {handleScroll, headerTranslateY} = useScrollVisibility();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigation.reset({
       index: 0,
       routes: [{name: 'Login'}],
     });
   };
 
-  const menuItems = [
-    {
-      id: 'notifications',
-      title: 'Notifications',
-      icon: 'notifications',
-      onPress: () => {},
-    },
-    {
-      id: 'privacy',
-      title: 'Privacy & Security',
-      icon: 'lock',
-      onPress: () => {},
-    },
-    {
-      id: 'language',
-      title: 'Language',
-      icon: 'language',
-      onPress: () => {},
-    },
-    {
-      id: 'help',
-      title: 'Help & Support',
-      icon: 'help',
-      onPress: () => {},
-    },
-    {
-      id: 'about',
-      title: 'About',
-      icon: 'info',
-      onPress: () => {},
-    },
-  ];
+  const getThemeModeLabel = () => {
+    switch (themeMode) {
+      case 'light':
+        return 'Light Mode';
+      case 'dark':
+        return 'Dark Mode';
+      case 'system':
+        return 'System Default';
+      default:
+        return 'System Default';
+    }
+  };
+
+  const handleThemeModePress = () => {
+    const modes: ThemeMode[] = ['light', 'dark', 'system'];
+    const currentIndex = modes.indexOf(themeMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setThemeMode(modes[nextIndex]);
+  };
 
   return (
-    <View
-      style={[styles.container, {backgroundColor: theme.colors.background}]}>
+    <ImageBackground
+      source={require('../../assets/images/bg_image_second.png')}
+      style={styles.container}
+      resizeMode="cover">
+      <View style={styles.overlay} />
       <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.colors.background}
+        barStyle="light-content"
+        translucent
+        backgroundColor="transparent"
       />
-      <View
+      <Animated.View
         style={[
           styles.header,
           {
-            borderBottomColor: theme.colors.border,
-            paddingTop: insets.top,
+            top: insets.top,
+            paddingTop: 20,
+            transform: [{translateY: headerTranslateY}],
           },
         ]}>
+        <FallingRupees count={12} />
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}>
@@ -83,32 +84,50 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
           Settings
         </Text>
         <View style={styles.placeholder} />
-      </View>
+      </Animated.View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
-        {menuItems.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={[styles.menuItem, {backgroundColor: theme.colors.surface}]}
-            onPress={item.onPress}
-            activeOpacity={0.7}>
-            <View style={styles.menuItemLeft}>
-              <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
-                <Icon name={item.icon} size={22} color={theme.colors.primary} />
-              </View>
+        contentContainerStyle={[styles.scrollContent, {paddingTop: insets.top + 100}]}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}>
+        <View style={styles.menuItemContainer}>
+          <View style={styles.menuItemGlassContainer}>
+            <View style={styles.menuItemGlassBaseLayer} />
+            <View style={styles.menuItemGlassFrostLayer} />
+            <View style={styles.menuItemGlassHighlight} />
+            <View style={styles.menuItemGlassInnerBorder} />
+        <TouchableOpacity
+              style={styles.menuItemGlassContent}
+          onPress={handleThemeModePress}
+          activeOpacity={0.7}>
+          <View style={styles.menuItemLeft}>
+            <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
+              <Icon name="brightness-6" size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.themeModeContainer}>
               <Text style={[styles.menuItemText, {color: theme.colors.text}]}>
-                {item.title}
+                Theme
+              </Text>
+              <Text style={[styles.themeModeLabel, {color: theme.colors.textSecondary}]}>
+                {getThemeModeLabel()}
               </Text>
             </View>
-            <Icon name="chevron-right" size={20} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        ))}
+          </View>
+          <Icon name="chevron-right" size={20} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={styles.logoutSection}>
+          <View style={styles.logoutButtonContainer}>
+            <View style={styles.logoutButtonGlassContainer}>
+              <View style={styles.logoutButtonGlassBaseLayer} />
+              <View style={styles.logoutButtonGlassFrostLayer} />
+              <View style={styles.logoutButtonGlassHighlight} />
+              <View style={styles.logoutButtonGlassInnerBorder} />
           <TouchableOpacity
-            style={[styles.logoutButton, {backgroundColor: theme.colors.surface}]}
+                style={styles.logoutButtonGlassContent}
             onPress={handleLogout}
             activeOpacity={0.7}>
             <View style={styles.menuItemLeft}>
@@ -120,9 +139,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
               </Text>
             </View>
           </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 };
 
@@ -130,11 +151,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    overflow: 'hidden',
   },
   backButton: {
     width: 40,
@@ -149,26 +179,75 @@ const styles = StyleSheet.create({
     width: 40,
   },
   scrollContent: {
-    paddingTop: 8,
+    paddingHorizontal: 24,
     paddingBottom: 32,
   },
-  menuItem: {
+  menuItemContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: 'visible',
+  },
+  menuItemGlassContainer: {
+    borderRadius: 20,
+    overflow: 'visible',
+    backgroundColor: 'rgba(139, 69, 19, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    position: 'relative',
+  },
+  menuItemGlassBaseLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(139, 69, 19, 0.12)',
+    borderRadius: 20,
+    pointerEvents: 'none',
+  },
+  menuItemGlassFrostLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 20,
+    pointerEvents: 'none',
+  },
+  menuItemGlassHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    pointerEvents: 'none',
+  },
+  menuItemGlassInnerBorder: {
+    position: 'absolute',
+    top: 0.5,
+    left: 0.5,
+    right: 0.5,
+    bottom: 0.5,
+    borderRadius: 19.5,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0, 0, 0, 0.3)',
+    pointerEvents: 'none',
+  },
+  menuItemGlassContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    marginHorizontal: 20,
-    marginTop: 8,
-    borderRadius: 14,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    position: 'relative',
+    zIndex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -188,26 +267,79 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0.2,
   },
+  themeModeContainer: {
+    flex: 1,
+  },
+  themeModeLabel: {
+    fontSize: 13,
+    marginTop: 2,
+  },
   logoutSection: {
     marginTop: 24,
-    paddingHorizontal: 20,
   },
-  logoutButton: {
+  logoutButtonContainer: {
+    borderRadius: 20,
+    overflow: 'visible',
+  },
+  logoutButtonGlassContainer: {
+    borderRadius: 20,
+    overflow: 'visible',
+    backgroundColor: 'rgba(139, 69, 19, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    position: 'relative',
+  },
+  logoutButtonGlassBaseLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(139, 69, 19, 0.12)',
+    borderRadius: 20,
+    pointerEvents: 'none',
+  },
+  logoutButtonGlassFrostLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 20,
+    pointerEvents: 'none',
+  },
+  logoutButtonGlassHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    pointerEvents: 'none',
+  },
+  logoutButtonGlassInnerBorder: {
+    position: 'absolute',
+    top: 0.5,
+    left: 0.5,
+    right: 0.5,
+    bottom: 0.5,
+    borderRadius: 19.5,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0, 0, 0, 0.3)',
+    pointerEvents: 'none',
+  },
+  logoutButtonGlassContent: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#FFEBEE',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    position: 'relative',
+    zIndex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   logoutText: {
     fontSize: 16,

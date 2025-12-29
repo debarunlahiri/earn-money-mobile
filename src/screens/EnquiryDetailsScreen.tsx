@@ -67,7 +67,7 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
-          <Image source={{uri: enquiry.image}} style={styles.image} />
+        <Image source={{uri: enquiry.image}} style={styles.image} />
         </View>
 
         <View style={styles.content}>
@@ -119,17 +119,17 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
                       />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text
-                        style={[
+                    <Text
+                      style={[
                           styles.infoLabel,
-                          {color: theme.colors.textSecondary},
-                        ]}>
+                        {color: theme.colors.textSecondary},
+                      ]}>
                         Property Type
-                      </Text>
-                      <Text
+                    </Text>
+                    <Text
                         style={[styles.infoValue, {color: theme.colors.text}]}>
-                        {enquiry.propertyType}
-                      </Text>
+                      {enquiry.propertyType}
+                    </Text>
                     </View>
                   </View>
                 )}
@@ -143,17 +143,17 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
                       />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text
-                        style={[
+                    <Text
+                      style={[
                           styles.infoLabel,
-                          {color: theme.colors.textSecondary},
-                        ]}>
-                        Price
-                      </Text>
-                      <Text
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      Price
+                    </Text>
+                    <Text
                         style={[styles.infoValue, {color: theme.colors.text}]}>
-                        {enquiry.propertyPrice}
-                      </Text>
+                      {enquiry.propertyPrice}
+                    </Text>
                     </View>
                   </View>
                 )}
@@ -167,17 +167,17 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
                       />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text
-                        style={[
+                    <Text
+                      style={[
                           styles.infoLabel,
-                          {color: theme.colors.textSecondary},
-                        ]}>
-                        Location
-                      </Text>
-                      <Text
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      Location
+                    </Text>
+                    <Text
                         style={[styles.infoValue, {color: theme.colors.text}]}>
-                        {enquiry.propertyLocation}
-                      </Text>
+                      {enquiry.propertyLocation}
+                    </Text>
                     </View>
                   </View>
                 )}
@@ -191,17 +191,17 @@ export const EnquiryDetailsScreen: React.FC<EnquiryDetailsScreenProps> = ({
                       />
                     </View>
                     <View style={styles.infoContent}>
-                      <Text
-                        style={[
+                    <Text
+                      style={[
                           styles.infoLabel,
-                          {color: theme.colors.textSecondary},
-                        ]}>
-                        Area
-                      </Text>
-                      <Text
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      Area
+                    </Text>
+                    <Text
                         style={[styles.infoValue, {color: theme.colors.text}]}>
-                        {enquiry.propertyArea}
-                      </Text>
+                      {enquiry.propertyArea}
+                    </Text>
                     </View>
                   </View>
                 )}
@@ -326,14 +326,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   sectionTitle: {
     fontSize: 20,

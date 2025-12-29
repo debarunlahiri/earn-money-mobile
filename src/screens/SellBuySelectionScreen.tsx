@@ -149,14 +149,6 @@ const styles = StyleSheet.create({
   option: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
   },
   optionGradient: {
     padding: 32,

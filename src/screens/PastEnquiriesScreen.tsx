@@ -5,17 +5,11 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
-  StatusBar,
-  TouchableOpacity,
-  Image,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Card} from '../components/Card';
 import {Enquiry} from '../types';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-
-const sampleProfileImage = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400';
 
 const mockEnquiries: Enquiry[] = [
   {
@@ -34,6 +28,7 @@ const mockEnquiries: Enquiry[] = [
     propertyLocation: 'Downtown, Sector 15, New Delhi',
     propertyArea: '1200 sqft',
     propertyStatus: 'Ready to Move',
+    status: 'Completed',
   },
   {
     id: '2',
@@ -50,6 +45,7 @@ const mockEnquiries: Enquiry[] = [
     propertyLocation: 'Green Valley, Mumbai Suburbs',
     propertyArea: '3500 sqft',
     propertyStatus: 'Under Construction',
+    status: 'Cancelled',
   },
   {
     id: '3',
@@ -67,6 +63,7 @@ const mockEnquiries: Enquiry[] = [
     propertyLocation: 'Electronic City, Bangalore',
     propertyArea: '600 sqft',
     propertyStatus: 'Ready to Move',
+    status: 'Completed',
   },
 ];
 
@@ -74,19 +71,10 @@ interface PastEnquiriesScreenProps {
   navigation: any;
 }
 
-const getRootNavigation = (navigation: any): any => {
-  let nav = navigation;
-  while (nav.getParent()) {
-    nav = nav.getParent();
-  }
-  return nav;
-};
-
 export const PastEnquiriesScreen: React.FC<PastEnquiriesScreenProps> = ({
   navigation,
 }) => {
-  const {theme, isDark} = useTheme();
-  const insets = useSafeAreaInsets();
+  const {theme} = useTheme();
   const [enquiries] = useState<Enquiry[]>(mockEnquiries);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -123,60 +111,93 @@ export const PastEnquiriesScreen: React.FC<PastEnquiriesScreenProps> = ({
     }
   };
 
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case 'Active':
+        return theme.colors.success;
+      case 'Completed':
+        return '#4CAF50';
+      case 'Pending':
+        return '#FF9800';
+      case 'Cancelled':
+        return theme.colors.error;
+      default:
+        return theme.colors.textSecondary;
+    }
+  };
+
+  const getStatusIcon = (status?: string) => {
+    switch (status) {
+      case 'Active':
+        return 'check-circle';
+      case 'Completed':
+        return 'done-all';
+      case 'Pending':
+        return 'schedule';
+      case 'Cancelled':
+        return 'cancel';
+      default:
+        return 'info';
+    }
+  };
+
   const renderItem = ({item}: {item: Enquiry}) => {
     const title = item.propertyName || item.title;
-    
-    const propertyDetails = [];
-    if (item.propertyType) {
-      propertyDetails.push(item.propertyType);
-    }
-    if (item.propertyArea) {
-      propertyDetails.push(item.propertyArea);
-    }
-    if (item.propertyLocation) {
-      propertyDetails.push(item.propertyLocation);
-    }
-    if (item.propertyPrice) {
-      propertyDetails.push(item.propertyPrice);
-    }
-    
-    const descriptionText = propertyDetails.length > 0 
-      ? propertyDetails.join(' • ') 
-      : item.description || '';
+    const enquiryColor = item.enquiryType
+      ? getEnquiryTypeColor(item.enquiryType)
+      : undefined;
+    const statusColor = item.status ? getStatusColor(item.status) : undefined;
 
     return (
-      <Card
+    <Card
         title={title}
-        description={descriptionText}
-        image={item.image}
-        date={item.date}
-        time={item.time}
-        onPress={() => handleEnquiryPress(item)}
+      description={item.description}
+      image={item.image}
+      date={item.date}
+      time={item.time}
+      onPress={() => handleEnquiryPress(item)}
+        propertyType={item.propertyType}
+        propertyArea={item.propertyArea}
+        propertyLocation={item.propertyLocation}
+        propertyPrice={item.propertyPrice}
         badge={
-          item.enquiryType ? (
-            (() => {
-              const enquiryColor = getEnquiryTypeColor(item.enquiryType);
-              return (
-                <View
-                  style={[
-                    styles.enquiryTypeBadge,
-                    {backgroundColor: enquiryColor + '20'},
-                  ]}>
-                  <Icon
-                    name={getEnquiryTypeIcon(item.enquiryType)}
-                    size={20}
-                    color={enquiryColor}
-                  />
-                  <Text style={[styles.enquiryTypeText, {color: enquiryColor}]}>
-                    {item.enquiryType === 'buy' ? 'BUY' : 'SELL'}
-                  </Text>
-                </View>
-              );
-            })()
-          ) : undefined
+          <View style={styles.badgeContainer}>
+            {item.status && (
+              <View
+                style={[
+                  styles.statusBadge,
+                  {backgroundColor: statusColor + '20', marginRight: 8},
+                ]}>
+                <Icon
+                  name={getStatusIcon(item.status)}
+                  size={20}
+                  color={statusColor}
+                />
+                <Text style={[styles.statusText, {color: statusColor}]}>
+                  {item.status}
+                </Text>
+              </View>
+            )}
+            {item.enquiryType && (
+              <View
+                style={[
+                  styles.enquiryTypeBadge,
+                  {backgroundColor: enquiryColor + '20'},
+                ]}>
+                <Icon
+                  name={getEnquiryTypeIcon(item.enquiryType)}
+                  size={20}
+                  color={enquiryColor}
+                />
+                <Text style={[styles.enquiryTypeText, {color: enquiryColor}]}>
+                  {item.enquiryType === 'buy' ? 'Purchase' : 'Sale'}
+                </Text>
+              </View>
+            )}
+          </View>
         }
-      />
-    );
+    />
+  );
   };
 
   const renderEmpty = () => (
@@ -191,46 +212,6 @@ export const PastEnquiriesScreen: React.FC<PastEnquiriesScreenProps> = ({
   return (
     <View
       style={[styles.container, {backgroundColor: theme.colors.background}]}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.colors.background}
-      />
-      <View style={styles.headerContainer}>
-        <View
-          style={[
-            styles.header,
-            {
-              borderBottomColor: theme.colors.border,
-              paddingTop: insets.top,
-            },
-          ]}>
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-                Past Enquiries
-              </Text>
-              <Text
-                style={[
-                  styles.headerSubtitle,
-                  {color: theme.colors.textSecondary},
-                ]}>
-                Your property enquiries
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                const rootNav = getRootNavigation(navigation);
-                rootNav.navigate('Profile');
-              }}
-              style={styles.profileButton}>
-              <Image
-                source={{uri: sampleProfileImage}}
-                style={styles.profileImage}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
       <FlatList
         data={enquiries}
         renderItem={renderItem}
@@ -257,51 +238,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerContainer: {
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  profileButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -1,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    opacity: 0.7,
-  },
   listContent: {
     padding: 24,
     paddingBottom: 180,
@@ -321,10 +257,26 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     fontWeight: '500',
   },
-  enquiryTypeBadge: {
+  badgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  enquiryTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,

@@ -5,17 +5,11 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
-  StatusBar,
-  TouchableOpacity,
-  Image,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Card} from '../components/Card';
 import {Status} from '../types';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-
-const sampleProfileImage = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400';
 
 const mockStatuses: Status[] = [
   {
@@ -90,17 +84,8 @@ interface StatusScreenProps {
   navigation: any;
 }
 
-const getRootNavigation = (navigation: any): any => {
-  let nav = navigation;
-  while (nav.getParent()) {
-    nav = nav.getParent();
-  }
-  return nav;
-};
-
 export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
-  const {theme, isDark} = useTheme();
-  const insets = useSafeAreaInsets();
+  const {theme} = useTheme();
   const [statuses] = useState<Status[]>(mockStatuses);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -148,27 +133,27 @@ export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
   const renderItem = ({item}: {item: Status}) => {
     const statusColor = getStatusColor(item.status);
     return (
-      <Card
-        title={item.title}
-        description={item.description}
-        image={item.image}
-        date={item.date}
-        time={item.time}
-        onPress={() => handleStatusPress(item)}
-        badge={
-          <View
-            style={[
-              styles.statusBadge,
+    <Card
+      title={item.title}
+      description={item.description}
+      image={item.image}
+      date={item.date}
+      time={item.time}
+      onPress={() => handleStatusPress(item)}
+      badge={
+        <View
+          style={[
+            styles.statusBadge,
               {backgroundColor: statusColor + '20'},
-            ]}>
+          ]}>
             <Icon name={getStatusIcon(item.status)} size={20} color={statusColor} />
             <Text style={[styles.statusText, {color: statusColor}]}>
               {item.status}
             </Text>
-          </View>
-        }
-      />
-    );
+        </View>
+      }
+    />
+  );
   };
 
   const renderEmpty = () => (
@@ -183,46 +168,6 @@ export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
   return (
     <View
       style={[styles.container, {backgroundColor: theme.colors.background}]}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={theme.colors.background}
-      />
-      <View style={styles.headerContainer}>
-        <View
-          style={[
-            styles.header,
-            {
-              borderBottomColor: theme.colors.border,
-              paddingTop: insets.top,
-            },
-          ]}>
-          <View style={styles.headerContent}>
-            <View>
-              <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-                Status
-              </Text>
-              <Text
-                style={[
-                  styles.headerSubtitle,
-                  {color: theme.colors.textSecondary},
-                ]}>
-                Recent updates
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                const rootNav = getRootNavigation(navigation);
-                rootNav.navigate('Profile');
-              }}
-              style={styles.profileButton}>
-              <Image
-                source={{uri: sampleProfileImage}}
-                style={styles.profileImage}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
       <FlatList
         data={statuses}
         renderItem={renderItem}
@@ -248,51 +193,6 @@ export const StatusScreen: React.FC<StatusScreenProps> = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  headerContainer: {
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  profileButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -1,
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    opacity: 0.7,
   },
   listContent: {
     padding: 24,

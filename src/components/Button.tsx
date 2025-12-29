@@ -144,9 +144,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   primaryText: {
-    color: '#FFFFFF',
+    color: '#000000',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 1,
     marginLeft: 8,
   },
   outlineText: {

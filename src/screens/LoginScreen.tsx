@@ -19,6 +19,10 @@ import {Button} from '../components/Button';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {TextInput} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
+import {FallingRupees} from '../components/FallingRupee';
+import {formatIndianPhoneNumber, isValidIndianPhoneNumber, formatPhoneNumberForDisplay, getFullPhoneNumber} from '../utils/phoneUtils';
+import {verifyMobile} from '../services/api';
+import {Alert, ActivityIndicator} from 'react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -74,13 +78,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
       Animated.sequence([
         Animated.timing(circle1Anim, {
           toValue: 1,
-          duration: 3000,
+          duration: 12000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(circle1Anim, {
           toValue: 0,
-          duration: 3000,
+          duration: 12000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -92,13 +96,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
       Animated.sequence([
         Animated.timing(circle2Anim, {
           toValue: 1,
-          duration: 4000,
+          duration: 16000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(circle2Anim, {
           toValue: 0,
-          duration: 4000,
+          duration: 16000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -110,13 +114,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
       Animated.sequence([
         Animated.timing(circle3Anim, {
           toValue: 1,
-          duration: 5000,
+          duration: 20000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(circle3Anim, {
           toValue: 0,
-          duration: 5000,
+          duration: 20000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -197,8 +201,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
     rupee4Animation.start();
   }, []);
 
+  const handlePhoneNumberChange = (text: string) => {
+    const formatted = formatIndianPhoneNumber(text);
+    setPhoneNumber(formatted);
+  };
+
+  const displayPhoneNumber = formatPhoneNumberForDisplay(phoneNumber);
+  const isValidPhone = isValidIndianPhoneNumber(phoneNumber);
+  const [isLoading, setIsLoading] = useState(false);
+
   useEffect(() => {
-    if (phoneNumber.length >= 10) {
+    if (isValidPhone) {
       Animated.parallel([
         Animated.spring(inputScaleAnim, {
           toValue: 1.02,
@@ -253,7 +266,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
         }),
       ]).start();
     }
-  }, [phoneNumber]);
+  }, [phoneNumber, isValidPhone]);
 
   const handleFocus = () => {
     setIsFocused(true);
@@ -267,7 +280,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
 
   const handleBlur = () => {
     setIsFocused(false);
-    if (phoneNumber.length < 10) {
+    if (!isValidPhone) {
       Animated.spring(inputScaleAnim, {
         toValue: 1,
         tension: 100,
@@ -277,12 +290,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
     }
   };
 
-  const handleLogin = () => {
-    if (phoneNumber && phoneNumber.length >= 10) {
+  const handleLogin = async () => {
+    if (isValidPhone) {
+      setIsLoading(true);
+      try {
+        const fullPhoneNumber = getFullPhoneNumber(phoneNumber);
+        // Remove +91 prefix for API call (API expects just the 10-digit number)
+        const mobileNumber = phoneNumber;
+        
+        const response = await verifyMobile(mobileNumber);
+        
+        if (response.status === 'success' && response.status_code === 200) {
       navigation.navigate('OTPVerification', {
-        phoneNumber,
+            phoneNumber: fullPhoneNumber,
         isRegister: false,
       });
+        } else {
+          Alert.alert('Error', response.message || 'Failed to send OTP');
+        }
+      } catch (error: any) {
+        console.error('Error sending OTP:', error);
+        Alert.alert('Error', error.message || 'Failed to send OTP. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -394,7 +425,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <Animated.View style={[styles.fullScreenBackground, {opacity: imageOpacityAnim}]}>
         <ImageBackground
-          source={require('../assets/login_image.jpg')}
+          source={require('../../assets/images/bg_image_second.png')}
           style={styles.backgroundImage}
           resizeMode="cover">
           <Animated.View
@@ -408,7 +439,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               },
             ]}>
             <LinearGradient
-              colors={['rgba(0,122,255,0.8)', 'rgba(88,86,214,0.6)', 'rgba(0,122,255,0.3)']}
+              colors={['rgba(212,175,55,0.6)', 'rgba(139,69,19,0.4)', 'rgba(212,175,55,0.2)']}
               style={styles.circleGradient}
               start={{x: 0, y: 0}}
               end={{x: 1, y: 1}}
@@ -426,7 +457,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               },
             ]}>
             <LinearGradient
-              colors={['rgba(88,86,214,0.7)', 'rgba(0,122,255,0.5)', 'rgba(88,86,214,0.2)']}
+              colors={['rgba(139,69,19,0.5)', 'rgba(212,175,55,0.3)', 'rgba(139,69,19,0.15)']}
               style={styles.circleGradient}
               start={{x: 0, y: 0}}
               end={{x: 1, y: 1}}
@@ -444,115 +475,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               },
             ]}>
             <LinearGradient
-              colors={['rgba(0,122,255,0.6)', 'rgba(88,86,214,0.4)', 'rgba(0,122,255,0.1)']}
+              colors={['rgba(212,175,55,0.4)', 'rgba(139,69,19,0.3)', 'rgba(212,175,55,0.1)']}
               style={styles.circleGradient}
               start={{x: 0, y: 0}}
               end={{x: 1, y: 1}}
             />
           </Animated.View>
 
-          <Animated.View
-            style={[
-              styles.rupeeIcon,
-              styles.rupee1,
-              {
-                transform: [
-                  {translateY: rupee1TranslateY},
-                  {rotate: rupee1Rotation},
-                ],
-                opacity: rupee1Opacity,
-              },
-            ]}>
-            <Image
-              source={require('../assets/rupee_icon.png')}
-              style={styles.rupeeImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
+          <FallingRupees count={12} />
 
-          <Animated.View
-            style={[
-              styles.rupeeIcon,
-              styles.rupee2,
-              {
-                transform: [
-                  {translateY: rupee2TranslateY},
-                  {rotate: rupee2Rotation},
-                ],
-                opacity: rupee2Opacity,
-              },
-            ]}>
-            <Image
-              source={require('../assets/rupee_icon.png')}
-              style={styles.rupeeImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.rupeeIcon,
-              styles.rupee3,
-              {
-                transform: [
-                  {translateY: rupee3TranslateY},
-                  {rotate: rupee3Rotation},
-                ],
-                opacity: rupee3Opacity,
-              },
-            ]}>
-            <Image
-              source={require('../assets/rupee_icon.png')}
-              style={styles.rupeeImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.rupeeIcon,
-              styles.rupee4,
-              {
-                transform: [
-                  {translateY: rupee4TranslateY},
-                  {rotate: rupee4Rotation},
-                ],
-                opacity: rupee4Opacity,
-              },
-            ]}>
-            <Image
-              source={require('../assets/rupee_icon.png')}
-              style={styles.rupeeImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
-
-          <LinearGradient
-            colors={
-              isDark
-                ? [
-                    'rgba(0,122,255,0.85)',
-                    'rgba(88,86,214,0.75)',
-                    'rgba(0,0,0,0.6)',
-                    'rgba(0,0,0,0.4)',
-                  ]
-                : [
-                    'rgba(0,122,255,0.7)',
-                    'rgba(88,86,214,0.6)',
-                    'rgba(0,122,255,0.4)',
-                    'rgba(255,255,255,0.2)',
-                  ]
-            }
-            style={styles.overlay}
-            start={{x: 0, y: 0}}
-            end={{x: 0, y: 1}}
-          />
+          <View style={styles.overlay} />
         </ImageBackground>
       </Animated.View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
         <ScrollView
           style={{backgroundColor: 'transparent', flex: 1}}
           contentContainerStyle={[
@@ -560,18 +499,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
             {paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20, backgroundColor: 'transparent'},
           ]}
           showsVerticalScrollIndicator={false}
-          bounces={false}>
+          bounces={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           <Animated.View
             style={[
               styles.translucentCard,
               {
                 opacity: fadeAnim,
                 transform: [{translateY: slideAnim}],
-                backgroundColor: isDark
-                  ? 'rgba(28, 28, 30, 0.85)'
-                  : 'rgba(255, 255, 255, 0.9)',
               },
             ]}>
+            <View style={styles.glassContainer}>
+              <View style={styles.glassBaseLayer} />
+              <View style={styles.glassFrostLayer} />
+              <View style={styles.glassHighlight} />
+              <View style={styles.glassInnerBorder} />
+              <View style={styles.glassContent}>
             <Text style={[styles.title, {color: theme.colors.text}]}>
               Welcome Back
             </Text>
@@ -610,24 +554,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                         name="phone"
                         size={22}
                         color={
-                          phoneNumber.length >= 10
+                          isValidPhone
                             ? theme.colors.primary
                             : theme.colors.textSecondary
                         }
                         style={styles.inputIcon}
                       />
                     </Animated.View>
+                    <View style={styles.phoneInputContainer}>
+                      <Text style={[styles.countryCode, {color: theme.colors.text}]}>
+                        +91
+                      </Text>
                     <TextInput
                       style={[styles.input, {color: theme.colors.text}]}
-                      placeholder="Phone number"
+                        placeholder="XXXXX XXXXX"
                       placeholderTextColor={theme.colors.textSecondary}
-                      value={phoneNumber}
-                      onChangeText={setPhoneNumber}
+                        value={displayPhoneNumber.replace('+91 ', '')}
+                        onChangeText={handlePhoneNumberChange}
                       onFocus={handleFocus}
                       onBlur={handleBlur}
                       keyboardType="phone-pad"
-                      autoFocus
+                        maxLength={12}
                     />
+                    </View>
                     <Animated.View
                       style={[
                         styles.checkIcon,
@@ -646,11 +595,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               </View>
 
               <Button
-                title="Continue"
+                title={isLoading ? 'Sending OTP...' : 'Continue'}
                 onPress={handleLogin}
-                disabled={!phoneNumber || phoneNumber.length < 10}
+                disabled={!isValidPhone || isLoading}
                 style={styles.button}
               />
+              {isLoading && (
+                <ActivityIndicator
+                  size="small"
+                  color={theme.colors.primary}
+                  style={styles.loader}
+                />
+              )}
             </View>
 
             <View style={styles.footer}>
@@ -663,6 +619,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                 onPress={() => navigation.navigate('Register')}>
                 Create Account
               </Text>
+            </View>
+              </View>
             </View>
           </Animated.View>
         </ScrollView>
@@ -692,10 +650,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   overlay: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   keyboardView: {
     flex: 1,
@@ -711,15 +667,64 @@ const styles = StyleSheet.create({
   translucentCard: {
     marginHorizontal: 20,
     borderRadius: 24,
+    overflow: 'visible',
+  },
+  glassContainer: {
+    borderRadius: 24,
+    overflow: 'visible',
+    backgroundColor: 'rgba(139, 69, 19, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)',
+    position: 'relative',
+  },
+  glassBaseLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(139, 69, 19, 0.12)',
+    borderRadius: 24,
+    pointerEvents: 'none',
+  },
+  glassFrostLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    borderRadius: 24,
+    pointerEvents: 'none',
+  },
+  glassHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    pointerEvents: 'none',
+  },
+  glassInnerBorder: {
+    position: 'absolute',
+    top: 0.5,
+    left: 0.5,
+    right: 0.5,
+    bottom: 0.5,
+    borderRadius: 23.5,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0, 0, 0, 0.3)',
+    pointerEvents: 'none',
+  },
+  glassContent: {
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    position: 'relative',
+    zIndex: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
   },
   gradientCircle: {
     position: 'absolute',
@@ -799,20 +804,22 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 20,
     minHeight: 64,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   iconContainer: {
     marginRight: 14,
   },
   inputIcon: {
     marginRight: 0,
+  },
+  phoneInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  countryCode: {
+    fontSize: 17,
+    fontWeight: '600',
+    marginRight: 8,
   },
   input: {
     flex: 1,
@@ -825,6 +832,9 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   button: {
+    marginTop: 12,
+  },
+  loader: {
     marginTop: 12,
   },
   footer: {

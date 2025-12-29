@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, useCallback} from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import {INDIA_STATES} from '../data/indiaStates';
 import {INDIA_CITIES, getCitiesByState} from '../data/indiaCities';
 import {getSectorsByCity} from '../data/indiaSectors';
+import {useAuth} from '../context/AuthContext';
+import {addLead} from '../services/api';
 
 interface AddNewEnquiryScreenProps {
   navigation: any;
@@ -33,6 +35,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
 }) => {
   const {theme, isDark} = useTheme();
   const insets = useSafeAreaInsets();
+  const {userData} = useAuth();
   const [enquiryFor, setEnquiryFor] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [email, setEmail] = useState('');
@@ -54,9 +57,18 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedSector, setSelectedSector] = useState('');
+  const [sector, setSector] = useState('');
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [showSectorPicker, setShowSectorPicker] = useState(false);
+
+  // Pincode states
+  const [pincode, setPincode] = useState('');
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeError, setPincodeError] = useState('');
+
+  // Form submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Dialog states
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -68,10 +80,12 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   // Get sorted states alphabetically
   const sortedStates = [...INDIA_STATES].sort((a, b) => a.name.localeCompare(b.name));
 
-  // Get filtered and sorted cities and sectors based on selection
+  // Get filtered and sorted cities based on selection
   const filteredCities = selectedState 
     ? getCitiesByState(selectedState).sort((a, b) => a.name.localeCompare(b.name)) 
     : [];
+
+  // Get filtered sectors based on selected city
   const filteredSectors = selectedCity 
     ? getSectorsByCity(selectedCity).sort((a, b) => a.name.localeCompare(b.name)) 
     : [];
@@ -87,25 +101,25 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     return city ? city.name : '';
   };
 
-  const getSectorName = (sectorId: string) => {
-    const sectors = selectedCity ? getSectorsByCity(selectedCity) : [];
-    const sector = sectors.find(s => s.id === sectorId);
-    return sector ? sector.name : '';
-  };
-
-  // Handle state change - reset city and sector
+  // Handle state change - reset city
   const handleStateChange = (stateId: string) => {
     setSelectedState(stateId);
     setSelectedCity('');
-    setSelectedSector('');
     setShowStatePicker(false);
   };
 
-  // Handle city change - reset sector
+  // Handle city change
   const handleCityChange = (cityId: string) => {
     setSelectedCity(cityId);
     setSelectedSector('');
     setShowCityPicker(false);
+  };
+
+  // Get sector name from id
+  const getSectorName = (sectorId: string) => {
+    const sectors = getSectorsByCity(selectedCity);
+    const sector = sectors.find(s => s.id === sectorId);
+    return sector ? sector.name : '';
   };
 
   // Handle sector change
@@ -113,6 +127,73 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     setSelectedSector(sectorId);
     setShowSectorPicker(false);
   };
+
+  // Handle pincode change and auto-fill
+  const handlePincodeChange = useCallback(async (text: string) => {
+    // Only allow digits and max 6 characters
+    const cleanedPincode = text.replace(/\D/g, '').substring(0, 6);
+    setPincode(cleanedPincode);
+    setPincodeError('');
+    
+    // If pincode is 6 digits, fetch data from API
+    if (cleanedPincode.length === 6) {
+      setPincodeLoading(true);
+      try {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${cleanedPincode}`);
+        const data = await response.json();
+        
+        if (data && data[0] && data[0].Status === 'Success' && data[0].PostOffice && data[0].PostOffice.length > 0) {
+          const postOffice = data[0].PostOffice[0];
+          const stateName = postOffice.State;
+          const districtName = postOffice.District;
+          const localityName = postOffice.Name;
+          
+          // Auto-fill sector/locality with post office name
+          if (localityName) {
+            setSector(localityName);
+          }
+          
+          // Find matching state
+          const matchedState = INDIA_STATES.find(
+            s => s.name.toLowerCase() === stateName.toLowerCase()
+          );
+          
+          if (matchedState) {
+            setSelectedState(matchedState.id);
+            
+            // Find matching city/district
+            const citiesInState = getCitiesByState(matchedState.id);
+            const matchedCity = citiesInState.find(
+              c => c.name.toLowerCase() === districtName.toLowerCase()
+            );
+            
+            if (matchedCity) {
+              setSelectedCity(matchedCity.id);
+            } else {
+              // If exact match not found, try to find partial match
+              const partialMatch = citiesInState.find(
+                c => c.name.toLowerCase().includes(districtName.toLowerCase()) ||
+                     districtName.toLowerCase().includes(c.name.toLowerCase())
+              );
+              if (partialMatch) {
+                setSelectedCity(partialMatch.id);
+              } else {
+                setSelectedCity('');
+              }
+            }
+          }
+          setPincodeError('');
+        } else {
+          setPincodeError('Invalid pincode');
+        }
+      } catch (error) {
+        console.log('Pincode API error:', error);
+        setPincodeError('Unable to fetch pincode details');
+      } finally {
+        setPincodeLoading(false);
+      }
+    }
+  }, []);
 
   const propertySearchOptions = ['Sale', 'Purchase'];
 
@@ -205,25 +286,71 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     setDialogTitle(title || '');
     setDialogMessage(message);
     setDialogType(type);
-    setDialogOnConfirm(onConfirm);
+    // Wrap the function in another function to prevent React from calling it as a lazy initializer
+    setDialogOnConfirm(() => onConfirm);
     setDialogVisible(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (
-      enquiryFor.trim() &&
-      mobileNumber.trim() &&
-      propertySearchFor &&
-      propertySearchingIn.trim()
+      !enquiryFor.trim() ||
+      !mobileNumber.trim() ||
+      !propertySearchFor ||
+      !propertySearchingIn.trim()
     ) {
-      showDialog(
-        'Enquiry submitted successfully!',
-        'Success',
-        'success',
-        () => navigation.goBack(),
-      );
-    } else {
       showDialog('Please fill in all required fields', 'Error', 'error');
+      return;
+    }
+
+    if (!userData?.userid || !userData?.token) {
+      showDialog('Authentication error. Please login again.', 'Error', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Build the requirement string with all relevant details
+      const requirementDetails = [
+        `Property Search: ${propertySearchFor}`,
+        `Budget: ${formatCurrency(minBudget)} - ${formatCurrency(maxBudget)}`,
+        getStateName(selectedState) && `State: ${getStateName(selectedState)}`,
+        getCityName(selectedCity) && `City: ${getCityName(selectedCity)}`,
+        getSectorName(selectedSector) && `Sector: ${getSectorName(selectedSector)}`,
+        email && `Email: ${email}`,
+      ].filter(Boolean).join(', ');
+
+      const response = await addLead({
+        userid: userData.userid,
+        token: userData.token,
+        leadname: enquiryFor.trim(),
+        leadmobile: mobileNumber.trim(),
+        address: propertySearchingIn.trim(),
+        requirement: requirementDetails,
+      });
+
+      if (response.status === 'success') {
+        showDialog(
+          response.message || 'Enquiry submitted successfully!',
+          'Success',
+          'success',
+          () => navigation.goBack(),
+        );
+      } else {
+        showDialog(
+          response.message || 'Failed to submit enquiry',
+          'Error',
+          'error',
+        );
+      }
+    } catch (error) {
+      console.error('Error submitting enquiry:', error);
+      showDialog(
+        'An error occurred while submitting the enquiry. Please try again.',
+        'Error',
+        'error',
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -258,7 +385,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
         showsVerticalScrollIndicator={false}>
         <View style={styles.form}>
           <Input
-            label="Enquiry For *"
+            label="Lead For *"
             value={enquiryFor}
             onChangeText={text => setEnquiryFor(formatEnquiryName(text))}
             placeholder="Enter enquiry name"
@@ -368,9 +495,55 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             value={propertySearchingIn}
             onChangeText={setPropertySearchingIn}
             placeholder="Enter address"
+            maxLength={80}
             leftIcon={
               <Icon
                 name="location-on"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            }
+            rightIcon={
+              <Text style={{color: propertySearchingIn.length >= 70 ? '#FF6B6B' : theme.colors.textSecondary, fontSize: 12}}>
+                {propertySearchingIn.length}/80
+              </Text>
+            }
+          />
+
+          {/* Pincode */}
+          <Input
+            label="Pincode *"
+            value={pincode}
+            onChangeText={handlePincodeChange}
+            placeholder="Enter 6-digit pincode"
+            keyboardType="numeric"
+            maxLength={6}
+            error={pincodeError}
+            leftIcon={
+              <Icon
+                name="pin-drop"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            }
+            rightIcon={
+              pincodeLoading ? (
+                <Text style={{color: theme.colors.textSecondary, fontSize: 12}}>Loading...</Text>
+              ) : pincode.length === 6 && !pincodeError ? (
+                <Icon name="check-circle" size={20} color="#4CAF50" />
+              ) : null
+            }
+          />
+
+          {/* Sector/Locality Text Field */}
+          <Input
+            label="Sector/Locality"
+            value={sector}
+            onChangeText={setSector}
+            placeholder="Enter sector/locality (optional)"
+            leftIcon={
+              <Icon
+                name="apartment"
                 size={20}
                 color={theme.colors.textSecondary}
               />
@@ -382,7 +555,6 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             onPress={() => {
               setShowStatePicker(!showStatePicker);
               setShowCityPicker(false);
-              setShowSectorPicker(false);
             }}
             activeOpacity={1}>
             <Input
@@ -454,7 +626,6 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
               if (selectedState) {
                 setShowCityPicker(!showCityPicker);
                 setShowStatePicker(false);
-                setShowSectorPicker(false);
               } else {
                 showDialog('Please select a state first', undefined, 'info');
               }
@@ -523,80 +694,6 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             </View>
           )}
 
-          {/* Sector Dropdown */}
-          <TouchableOpacity
-            onPress={() => {
-              if (selectedCity) {
-                setShowSectorPicker(!showSectorPicker);
-                setShowStatePicker(false);
-                setShowCityPicker(false);
-              } else {
-                showDialog('Please select a city first', undefined, 'info');
-              }
-            }}
-            activeOpacity={1}>
-            <Input
-              label="Sector/Locality"
-              value={getSectorName(selectedSector)}
-              placeholder={selectedCity ? "Select sector (optional)" : "Select city first"}
-              editable={false}
-              pointerEvents="none"
-              leftIcon={
-                <Icon
-                  name="apartment"
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
-              }
-              rightIcon={
-                <Icon
-                  name="arrow-drop-down"
-                  size={24}
-                  color={theme.colors.textSecondary}
-                />
-              }
-            />
-          </TouchableOpacity>
-
-          {showSectorPicker && filteredSectors.length > 0 && (
-            <View
-              style={[
-                styles.pickerContainer,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                  borderWidth: 1,
-                },
-              ]}>
-              <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
-                {filteredSectors.map(sector => (
-                  <TouchableOpacity
-                    key={sector.id}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.pickerItem,
-                      {
-                        backgroundColor: theme.colors.surface,
-                        borderBottomColor: theme.colors.border,
-                      },
-                    ]}
-                    onPress={() => handleSectorChange(sector.id)}>
-                    <Text
-                      style={[
-                        styles.pickerText,
-                        {
-                          color: theme.colors.text,
-                          fontWeight:
-                            selectedSector === sector.id ? '600' : '400',
-                        },
-                      ]}>
-                      {sector.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
 
           <View style={styles.budgetContainer}>
             <Text style={[styles.label, {color: theme.colors.text}]}>
@@ -701,9 +798,11 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
           </View>
 
           <Button
-            title="Submit Enquiry"
+            title={isSubmitting ? "Submitting..." : "Submit Enquiry"}
             onPress={handleSubmit}
             style={styles.submitButton}
+            loading={isSubmitting}
+            disabled={isSubmitting}
           />
         </View>
       </ScrollView>
@@ -759,11 +858,6 @@ const styles = StyleSheet.create({
     marginTop: -36,
     marginBottom: 16,
     borderWidth: 1,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
     maxHeight: 200,
     overflow: 'hidden',
   },

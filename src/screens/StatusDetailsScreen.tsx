@@ -152,11 +152,11 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
             style={[styles.infoCard, {backgroundColor: theme.colors.surface}]}>
             <View style={styles.infoRow}>
               <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
-                <Icon
-                  name="person"
-                  size={20}
+              <Icon
+                name="person"
+                size={20}
                   color={theme.colors.primary}
-                />
+              />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -197,11 +197,11 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
             {status.email && (
               <View style={styles.infoRow}>
                 <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
-                  <Icon
-                    name="email"
-                    size={20}
+                <Icon
+                  name="email"
+                  size={20}
                     color={theme.colors.primary}
-                  />
+                />
                 </View>
                 <View style={styles.infoContent}>
                   <Text
@@ -220,11 +220,11 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
 
             <View style={styles.infoRow}>
               <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
-                <Icon
-                  name="search"
-                  size={20}
+              <Icon
+                name="search"
+                size={20}
                   color={theme.colors.primary}
-                />
+              />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -242,11 +242,11 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
 
             <View style={styles.infoRow}>
               <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
-                <Icon
-                  name="location-on"
-                  size={20}
+              <Icon
+                name="location-on"
+                size={20}
                   color={theme.colors.primary}
-                />
+              />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -264,11 +264,11 @@ export const StatusDetailsScreen: React.FC<StatusDetailsScreenProps> = ({
 
             <View style={[styles.infoRow, styles.infoRowLast]}>
               <View style={[styles.iconContainer, {backgroundColor: `${theme.colors.primary}15`}]}>
-                <Icon
-                  name="attach-money"
-                  size={20}
+              <Icon
+                name="attach-money"
+                size={20}
                   color={theme.colors.primary}
-                />
+              />
               </View>
               <View style={styles.infoContent}>
                 <Text
@@ -397,14 +397,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   infoRow: {
     flexDirection: 'row',

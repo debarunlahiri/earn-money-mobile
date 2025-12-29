@@ -34,18 +34,18 @@ export interface Theme {
 
 const lightTheme: Theme = {
   colors: {
-    primary: '#007AFF',
-    secondary: '#5856D6',
-    background: '#FFFFFF',
-    surface: '#F5F5F5',
-    text: '#000000',
-    textSecondary: '#666666',
-    border: '#E0E0E0',
-    error: '#FF3B30',
-    success: '#34C759',
-    card: '#FFFFFF',
-    tabActive: '#007AFF',
-    tabInactive: '#8E8E93',
+    primary: '#D4AF37',
+    secondary: '#CD7F32',
+    background: '#0A0A0A',
+    surface: '#1A1A1A',
+    text: '#FFFFFF',
+    textSecondary: '#B0B0B0',
+    border: '#2A2A2A',
+    error: '#8B0000',
+    success: '#D4AF37',
+    card: '#1A1A1A',
+    tabActive: '#D4AF37',
+    tabInactive: '#666666',
   },
   spacing: {
     xs: 4,
@@ -64,18 +64,18 @@ const lightTheme: Theme = {
 
 const darkTheme: Theme = {
   colors: {
-    primary: '#0A84FF',
-    secondary: '#5E5CE6',
-    background: '#000000',
-    surface: '#1C1C1E',
+    primary: '#D4AF37',
+    secondary: '#CD7F32',
+    background: '#0A0A0A',
+    surface: '#1A1A1A',
     text: '#FFFFFF',
-    textSecondary: '#98989D',
-    border: '#38383A',
-    error: '#FF453A',
-    success: '#30D158',
-    card: '#1C1C1E',
-    tabActive: '#0A84FF',
-    tabInactive: '#8E8E93',
+    textSecondary: '#B0B0B0',
+    border: '#2A2A2A',
+    error: '#8B0000',
+    success: '#D4AF37',
+    card: '#1A1A1A',
+    tabActive: '#D4AF37',
+    tabInactive: '#666666',
   },
   spacing: {
     xs: 4,
@@ -92,10 +92,13 @@ const darkTheme: Theme = {
   },
 };
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 interface ThemeContextType {
   theme: Theme;
   isDark: boolean;
-  toggleTheme: () => void;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -104,20 +107,27 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({
   children,
 }) => {
   const systemColorScheme = useColorScheme();
-  const [isDark, setIsDark] = useState(systemColorScheme === 'dark');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('dark');
+  const [isDark, setIsDark] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadThemePreference();
   }, []);
 
+  useEffect(() => {
+    setIsDark(true);
+  }, [themeMode, systemColorScheme]);
+
   const loadThemePreference = async () => {
     try {
       const savedTheme = await AsyncStorage.getItem('themePreference');
-      if (savedTheme !== null) {
-        setIsDark(savedTheme === 'dark');
+      if (savedTheme !== null && (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system')) {
+        setThemeModeState(savedTheme as ThemeMode);
+        setIsDark(true);
       } else {
-        setIsDark(systemColorScheme === 'dark');
+        setThemeModeState('dark');
+        setIsDark(true);
       }
     } catch (error) {
       console.error('Error loading theme preference:', error);
@@ -126,11 +136,10 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({
     }
   };
 
-  const toggleTheme = async () => {
-    const newTheme = !isDark;
-    setIsDark(newTheme);
+  const setThemeMode = async (mode: ThemeMode) => {
+    setThemeModeState(mode);
     try {
-      await AsyncStorage.setItem('themePreference', newTheme ? 'dark' : 'light');
+      await AsyncStorage.setItem('themePreference', mode);
     } catch (error) {
       console.error('Error saving theme preference:', error);
     }
@@ -143,7 +152,7 @@ export const ThemeProvider: React.FC<{children: React.ReactNode}> = ({
   }
 
   return (
-    <ThemeContext.Provider value={{theme, isDark, toggleTheme}}>
+    <ThemeContext.Provider value={{theme, isDark, themeMode, setThemeMode}}>
       {children}
     </ThemeContext.Provider>
   );

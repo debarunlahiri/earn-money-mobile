@@ -1,0 +1,270 @@
+import {logRequest, logResponse, logError} from '../utils/apiLogger';
+
+const API_BASE_URL = 'https://api.erpvisit.com/api_money.php';
+
+export interface VerifyMobileResponse {
+  status: string;
+  status_code: number;
+  message: string;
+}
+
+export interface UserData {
+  username: string | null;
+  mobile: string | null;
+  token: number;
+  userid: number;
+}
+
+export interface VerifyOTPResponse {
+  status: string;
+  status_code: number;
+  message: string;
+  is_new?: string;
+  userdata?: UserData;
+}
+
+/**
+ * Sends OTP to the provided mobile number
+ */
+export const verifyMobile = async (
+  mobile: string,
+): Promise<VerifyMobileResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'verify_mobile');
+  formData.append('mobile', mobile);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData, {action: 'verify_mobile1'});
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      headers: {
+        action: 'verify_mobile1',
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Verifies OTP for the provided mobile number
+ */
+export const verifyOTP = async (
+  mobile: string,
+  otp: string,
+): Promise<VerifyOTPResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'verify_otp');
+  formData.append('mobile', mobile);
+  formData.append('otp', otp);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface RegisterUserResponse {
+  status: string;
+  status_code: number;
+  message: string;
+}
+
+/**
+ * Registers user with profile details
+ */
+export const registerUser = async (params: {
+  userid: string;
+  ac_no: string;
+  ifsc_code: string;
+  mobile: string;
+  username: string;
+  address: string;
+}): Promise<RegisterUserResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'register');
+  formData.append('userid', params.userid);
+  formData.append('ac_no', params.ac_no);
+  formData.append('ifsc_code', params.ifsc_code);
+  formData.append('mobile', params.mobile);
+  formData.append('username', params.username);
+  formData.append('address', params.address);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface ProfileData {
+  username: string;
+  mobile: string;
+  ac_no: string;
+  ifsc_code: string;
+  address: string;
+  userid: number;
+  token: number;
+  wallet: string;
+  created_at: string;
+}
+
+export interface ProfileResponse {
+  status: string;
+  status_code: number;
+  message?: string;
+  userdata?: ProfileData;
+}
+
+/**
+ * Fetches user profile data
+ */
+export const getProfile = async (
+  userid: string | number,
+  token: string | number,
+): Promise<ProfileResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'profile');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface AddLeadResponse {
+  status: string;
+  status_code: number;
+  message: string;
+  lead_id?: number;
+}
+
+/**
+ * Adds a new lead/enquiry
+ */
+export const addLead = async (params: {
+  userid: string | number;
+  token: string | number;
+  leadname: string;
+  leadmobile: string;
+  address: string;
+  requirement: string;
+}): Promise<AddLeadResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'add_lead');
+  formData.append('userid', params.userid.toString());
+  formData.append('token', params.token.toString());
+  formData.append('leadname', params.leadname);
+  formData.append('leadmobile', params.leadmobile);
+  formData.append('address', params.address);
+  formData.append('requirement', params.requirement);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface Lead {
+  id: number;
+  name: string;
+  mobile: string;
+  address: string;
+  requirement: string;
+  created_at: string;
+}
+
+export interface ViewLeadsResponse {
+  status: string;
+  status_code: number;
+  message: string;
+  total_leads?: number;
+  data?: Lead[];
+}
+
+/**
+ * Fetches all leads for the user
+ */
+export const viewLeads = async (
+  userid: string | number,
+  token: string | number,
+): Promise<ViewLeadsResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'view_lead');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};

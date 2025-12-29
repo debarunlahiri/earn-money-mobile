@@ -23,6 +23,7 @@ export interface Enquiry {
   propertyFeatures?: string[];
   propertyDocuments?: string[];
   enquiryType?: 'sell' | 'buy';
+  status?: 'Pending' | 'Active' | 'Completed' | 'Cancelled';
 }
 
 export interface Status {

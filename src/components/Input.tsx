@@ -35,12 +35,20 @@ export const Input: React.FC<InputProps> = ({
       )}
       <View
         style={[
-          styles.inputContainer,
+          styles.blurWrapper,
           {
-            backgroundColor: theme.colors.surface,
-            borderColor: error ? theme.colors.error : theme.colors.border,
+            borderColor: error
+              ? theme.colors.error
+              : 'rgba(212, 175, 55, 0.5)',
           },
         ]}>
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              borderColor: 'rgba(255, 255, 255, 0.15)',
+            },
+          ]}>
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
         <TextInput
           style={[
@@ -55,6 +63,7 @@ export const Input: React.FC<InputProps> = ({
           {...props}
         />
         {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
+        </View>
       </View>
       {error && (
         <Text style={[styles.errorText, {color: theme.colors.error}]}>
@@ -74,12 +83,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  blurWrapper: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(139, 69, 19, 0.12)',
+    borderWidth: 1.5,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 12,
     minHeight: 50,
+    backgroundColor: 'rgba(139, 69, 19, 0.08)',
   },
   input: {
     flex: 1,
