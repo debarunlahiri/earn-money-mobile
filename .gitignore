@@ -3,6 +3,8 @@
 .AppleDouble
 .LSOverride
 ._*
+.Spotlight-V100
+.Trashes
 
 # Node
 node_modules/
@@ -10,6 +12,14 @@ npm-debug.log
 yarn-error.log
 yarn-debug.log
 lerna-debug.log
+package-lock.json
+yarn.lock
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
 # Fastlane
 ios/fastlane/report.xml
@@ -23,19 +33,25 @@ android/app/build/
 android/app/debug/
 android/app/release/
 android/.gradle/
+android/gradle/
 android/captures/
 android/local.properties
 android/.idea/
 android/*.iml
+android/.cxx/
+android/.externalNativeBuild/
 *.apk
 *.ap_
 *.aab
+*.dex
+*.class
 
 # iOS
 ios/build/
 ios/Pods/
 ios/*.xcworkspace
 ios/.xcode.env.local
+ios/DerivedData/
 *.pbxuser
 !default.pbxuser
 *.mode1v3
@@ -62,30 +78,35 @@ buck-out/
 
 # Bundle
 *.jsbundle
+*.bundle
 
 # CocoaPods
 ios/Pods/
+Podfile.lock
 
 # Expo
 .expo/
 .expo-shared/
 dist/
 web-build/
+*.expo.*
 
 # Ruby
 ios/vendor/
+.bundle/
 
 # Debug
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# Misc
+# Environment Variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env*.local
 
 # IDEs
 .idea/
@@ -96,18 +117,97 @@ yarn-error.*
 .project
 .settings/
 .classpath
+*.sublime-project
+*.sublime-workspace
 
 # Temporary files
 temp_init/
 *.log
 *.tmp
+*.temp
+.cache/
 
 # Testing
 coverage/
 .jest/
+.nyc_output/
+*.lcov
 
 # TypeScript
 *.tsbuildinfo
+*.tsbuildinfo.*
 
 # Metro
 .metro-health-check*
+.metro/
+
+# EAS
+eas.json
+
+# Watchman
+.watchmanconfig
+
+# React Native
+.react-native/
+
+# Misc
+*.orig
+*.bak
+*.backup
+*.swp
+*~.nib
+
+# Build outputs
+build/
+dist/
+out/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# Service Account Keys & Credentials
+*-service-account*.json
+*-firebase-adminsdk-*.json
+serviceAccountKey.json
+service-account-key.json
+service_account_key.json
+google-services.json
+GoogleService-Info.plist
+credentials.json
+key.json
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.cer
+*.keystore
+*.jks
+
+# Google Cloud
+gcloud-service-key.json
+google-cloud-key.json
+gc-key.json
+
+# AWS
+*.aws
+.aws/
+aws-exports.js
+
+# API Keys & Secrets
+secrets.json
+api-keys.json
+*.secret
+.secrets/
+
+# Sentry
+.sentryclirc
+
+# Gemini/AI Assistant
+.gemini/
+
+# Documentation artifacts
+TOUCH_ISSUE_FIX_SUMMARY.md
+DEVICE_COMPATIBILITY_FIX.md
