@@ -21,6 +21,11 @@ import {WithdrawMoneyScreen} from '../screens/WithdrawMoneyScreen';
 import {TransactionHistoryScreen} from '../screens/TransactionHistoryScreen';
 import {MyLeadsScreen} from '../screens/MyLeadsScreen';
 import {LeadDetailsScreen} from '../screens/LeadDetailsScreen';
+import {SupportChatScreen} from '../screens/SupportChatScreen';
+import {AboutScreen} from '../screens/AboutScreen';
+import {NotificationScreen} from '../screens/NotificationScreen';
+import {AdminChatInboxScreen} from '../screens/AdminChatInboxScreen';
+import {AdminChatDetailScreen} from '../screens/AdminChatDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -109,6 +114,11 @@ export const AppNavigator = () => {
             <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
             <Stack.Screen name="MyLeads" component={MyLeadsScreen} />
             <Stack.Screen name="LeadDetails" component={LeadDetailsScreen} />
+            <Stack.Screen name="SupportChat" component={SupportChatScreen} />
+            <Stack.Screen name="About" component={AboutScreen} />
+            <Stack.Screen name="Notifications" component={NotificationScreen} />
+            <Stack.Screen name="AdminChatInbox" component={AdminChatInboxScreen} />
+            <Stack.Screen name="AdminChatDetail" component={AdminChatDetailScreen} />
           </>
         )}
       </Stack.Navigator>

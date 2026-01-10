@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,10 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {Button} from '../components/Button';
+import {useAuth} from '../context/AuthContext';
+import {submitWithdrawalRequest, getWallet} from '../services/api';
+import {ActivityIndicator} from 'react-native';
+import {Dialog} from '../components/Dialog';
 
 interface WithdrawMoneyScreenProps {
   navigation: any;
@@ -23,11 +27,106 @@ export const WithdrawMoneyScreen: React.FC<WithdrawMoneyScreenProps> = ({
 }) => {
   const {theme, isDark} = useTheme();
   const insets = useSafeAreaInsets();
-  const [selectedMethod, setSelectedMethod] = useState<'upi' | 'bank'>('upi');
-  const [amount, setAmount] = useState('5,000');
-  const [upiId, setUpiId] = useState('');
+  const {userData} = useAuth();
+  const [amount, setAmount] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [walletBalance, setWalletBalance] = useState('0');
+  const [isFetchingBalance, setIsFetchingBalance] = useState(true);
 
-  const withdrawableAmount = '15,500';
+  // Dialog states
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogTitle, setDialogTitle] = useState('');
+  const [dialogMessage, setDialogMessage] = useState('');
+  const [dialogType, setDialogType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
+  const [dialogOnConfirm, setDialogOnConfirm] = useState<(() => void) | undefined>(undefined);
+
+  // Fetch wallet balance on mount
+  useEffect(() => {
+    const fetchWalletBalance = async () => {
+      if (!userData?.userid || !userData?.token) {
+        setIsFetchingBalance(false);
+        return;
+      }
+
+      try {
+        const response = await getWallet(userData.userid, userData.token);
+        if (response.status === 'success' && response.status_code === 200) {
+          if (response.userdata) {
+            setWalletBalance(response.userdata.amount);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching wallet balance:', error);
+      } finally {
+        setIsFetchingBalance(false);
+      }
+    };
+
+    fetchWalletBalance();
+  }, [userData]);
+
+  const withdrawableAmount = walletBalance;
+
+  const showDialog = (
+    message: string,
+    title?: string,
+    type: 'info' | 'success' | 'error' | 'warning' = 'info',
+    onConfirm?: () => void,
+  ) => {
+    setDialogTitle(title || '');
+    setDialogMessage(message);
+    setDialogType(type);
+    if (onConfirm) {
+      setDialogOnConfirm(() => onConfirm);
+    }
+    setDialogVisible(true);
+  };
+
+  const handleWithdraw = async () => {
+    if (!userData?.userid || !userData?.token) {
+      showDialog('User not logged in', 'Error', 'error');
+      return;
+    }
+
+    // Remove commas and validate amount
+    const cleanAmount = amount.replace(/,/g, '');
+    const amountNum = parseFloat(cleanAmount);
+
+    if (!cleanAmount || isNaN(amountNum) || amountNum <= 0) {
+      showDialog('Please enter a valid withdrawal amount', 'Invalid Amount', 'error');
+      return;
+    }
+
+    if (amountNum < 500) {
+      showDialog('Minimum withdrawal amount is ₹500', 'Minimum Amount', 'error');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await submitWithdrawalRequest(
+        userData.userid,
+        userData.token,
+        cleanAmount
+      );
+
+      if (response.status === 'success' && response.status_code === 200) {
+        showDialog(
+          response.message,
+          'Request Submitted',
+          'success',
+          () => navigation.goBack()
+        );
+      } else {
+        showDialog(response.message || 'Failed to submit withdrawal request', 'Error', 'error');
+      }
+    } catch (error) {
+      console.error('Error submitting withdrawal:', error);
+      showDialog('Failed to submit withdrawal request. Please try again.', 'Error', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <ImageBackground
@@ -60,74 +159,20 @@ export const WithdrawMoneyScreen: React.FC<WithdrawMoneyScreenProps> = ({
             <Text style={[styles.amountLabel, {color: theme.colors.textSecondary}]}>
               Withdrawable Amount:
             </Text>
-            <View style={styles.amountValueContainer}>
-              <Icon name="currency-rupee" size={24} color={theme.colors.primary} />
-              <Text style={[styles.amountValue, {color: theme.colors.primary}]}>
-                {withdrawableAmount}
-              </Text>
-            </View>
+            {isFetchingBalance ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} style={{marginTop: 12}} />
+            ) : (
+              <View style={styles.amountValueContainer}>
+                <Icon name="currency-rupee" size={24} color={theme.colors.primary} />
+                <Text style={[styles.amountValue, {color: theme.colors.primary}]}>
+                  {withdrawableAmount}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <View style={styles.methodSection}>
-          <Text style={[styles.sectionTitle, {color: theme.colors.text}]}>
-            Withdrawal Method
-          </Text>
 
-          <View style={styles.methodWrapper}>
-            <TouchableOpacity
-              style={[
-                styles.methodOption,
-                {
-                  borderColor:
-                    selectedMethod === 'upi'
-                      ? 'rgba(212, 175, 55, 0.6)'
-                      : 'rgba(212, 175, 55, 0.3)',
-                  borderWidth: selectedMethod === 'upi' ? 2 : 1,
-                },
-              ]}
-              onPress={() => setSelectedMethod('upi')}>
-              <View style={styles.methodInfo}>
-                <Text style={[styles.methodTitle, {color: theme.colors.text}]}>
-                  UPI Transfer
-                </Text>
-                <Text style={[styles.methodSubtitle, {color: theme.colors.textSecondary}]}>
-                  Instant
-                </Text>
-              </View>
-              {selectedMethod === 'upi' && (
-              <Icon name="check-circle" size={24} color={theme.colors.primary} />
-            )}
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.methodWrapper}>
-            <TouchableOpacity
-              style={[
-                styles.methodOption,
-                {
-                  borderColor:
-                    selectedMethod === 'bank'
-                      ? 'rgba(212, 175, 55, 0.6)'
-                      : 'rgba(212, 175, 55, 0.3)',
-                  borderWidth: selectedMethod === 'bank' ? 2 : 1,
-                },
-              ]}
-              onPress={() => setSelectedMethod('bank')}>
-              <View style={styles.methodInfo}>
-                <Text style={[styles.methodTitle, {color: theme.colors.text}]}>
-                  Bank Transfer
-                </Text>
-                <Text style={[styles.methodSubtitle, {color: theme.colors.textSecondary}]}>
-                  1-2 Days
-                </Text>
-              </View>
-              {selectedMethod === 'bank' && (
-              <Icon name="check-circle" size={24} color={theme.colors.primary} />
-            )}
-            </TouchableOpacity>
-          </View>
-        </View>
 
         <View style={styles.inputSection}>
           <Text style={[styles.inputLabel, {color: theme.colors.text}]}>
@@ -147,37 +192,40 @@ export const WithdrawMoneyScreen: React.FC<WithdrawMoneyScreenProps> = ({
           </View>
         </View>
 
-        {selectedMethod === 'upi' && (
-          <View style={styles.inputSection}>
-            <Text style={[styles.inputLabel, {color: theme.colors.text}]}>
-              ENTER UPI ID
+
+        <View style={styles.infoCard}>
+          <View style={styles.infoGlassBorder}>
+            <Icon name="info-outline" size={20} color={theme.colors.primary} />
+            <Text style={[styles.infoText, {color: theme.colors.textSecondary}]}>
+              This amount will be received in your bank account which you mentioned while registering.
             </Text>
-            <View style={styles.inputBlurWrapper}>
-              <View style={styles.inputGlassBorder}>
-                <TextInput
-                  style={[styles.input, {color: theme.colors.text}]}
-                  value={upiId}
-                  onChangeText={setUpiId}
-                  placeholder="Enter your UPI ID"
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
-              </View>
-            </View>
           </View>
-        )}
+        </View>
 
         <Button
-          title="WITHDRAW NOW"
-          onPress={() => {
-            // Handle withdrawal
-          }}
+          title={isLoading ? 'PROCESSING...' : 'WITHDRAW NOW'}
+          onPress={handleWithdraw}
           style={styles.withdrawButton}
+          disabled={isLoading}
         />
+
+        {isLoading && (
+          <ActivityIndicator size="small" color={theme.colors.primary} style={styles.loader} />
+        )}
 
         <Text style={[styles.minimumText, {color: theme.colors.textSecondary}]}>
           Minimum withdrawal amount is ₹500
         </Text>
       </ScrollView>
+
+      <Dialog
+        visible={dialogVisible}
+        title={dialogTitle}
+        message={dialogMessage}
+        type={dialogType}
+        onClose={() => setDialogVisible(false)}
+        onConfirm={dialogOnConfirm}
+      />
     </ImageBackground>
   );
 };
@@ -314,6 +362,32 @@ const styles = StyleSheet.create({
   withdrawButton: {
     marginTop: 8,
     marginBottom: 16,
+  },
+  loader: {
+    marginVertical: 8,
+  },
+  infoCard: {
+    borderRadius: 12,
+    marginBottom: 24,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(139, 69, 19, 0.12)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.5)',
+  },
+  infoGlassBorder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(139, 69, 19, 0.08)',
+    gap: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
   minimumText: {
     fontSize: 12,

@@ -1,6 +1,7 @@
 import React, {createContext, useContext, useState, useEffect} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {UserData, getProfile} from '../services/api';
+import {subscribeToLogoutRequired} from '../utils/authEventEmitter';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -21,6 +22,26 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
 
   useEffect(() => {
     checkAuthState();
+  }, []);
+
+  // Subscribe to logout events (401 errors from API)
+  // Note: The custom dialog is shown by SessionExpiredHandler component
+  useEffect(() => {
+    const unsubscribe = subscribeToLogoutRequired(async (data) => {
+      console.log('Received logout required event:', data.message);
+      
+      // Clear auth state - dialog is shown by SessionExpiredHandler
+      try {
+        await AsyncStorage.removeItem('authToken');
+        await AsyncStorage.removeItem('userData');
+        setIsAuthenticated(false);
+        setUserData(null);
+      } catch (error) {
+        console.error('Error during forced logout:', error);
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   const checkAuthState = async () => {
@@ -102,4 +123,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-

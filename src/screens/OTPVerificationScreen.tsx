@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useMemo} from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import {useTheme} from '../theme/ThemeContext';
 import {useAuth} from '../context/AuthContext';
@@ -18,6 +20,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {ImageBackground, Alert, ActivityIndicator} from 'react-native';
 import {verifyOTP, verifyMobile} from '../services/api';
 import {formatIndianPhoneNumber} from '../utils/phoneUtils';
+
+const {width: SCREEN_WIDTH} = Dimensions.get('window');
 
 interface OTPVerificationScreenProps {
   navigation: any;
@@ -31,12 +35,48 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
   const {theme} = useTheme();
   const {login} = useAuth();
   const insets = useSafeAreaInsets();
+  const {width: windowWidth} = useWindowDimensions();
   const {phoneNumber, isRegister = false} = route.params;
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // Calculate responsive OTP box dimensions based on screen width
+  const otpBoxDimensions = useMemo(() => {
+    // Available width = screen width - (horizontal padding * 2) - (glass container padding * 2)
+    const horizontalPadding = 20; // scrollContent paddingHorizontal
+    const glassContentPadding = 24; // glassContent padding
+    const totalHorizontalPadding = (horizontalPadding + glassContentPadding) * 2;
+    
+    // Calculate available width for OTP boxes
+    const availableWidth = windowWidth - totalHorizontalPadding;
+    
+    // 6 boxes with 5 gaps between them
+    const numberOfBoxes = 6;
+    const numberOfGaps = 5;
+    const gapSize = Math.min(8, availableWidth * 0.02); // Responsive gap, max 8px
+    const totalGapWidth = gapSize * numberOfGaps;
+    
+    // Calculate box width
+    const boxWidth = Math.floor((availableWidth - totalGapWidth) / numberOfBoxes);
+    
+    // Constrain box dimensions (min 40, max 56)
+    const constrainedWidth = Math.max(40, Math.min(56, boxWidth));
+    const boxHeight = Math.round(constrainedWidth * 1.25); // Slightly taller than wide
+    
+    // Font size scales with box size
+    const fontSize = Math.max(18, Math.min(24, constrainedWidth * 0.5));
+    
+    return {
+      width: constrainedWidth,
+      height: boxHeight,
+      gap: gapSize,
+      fontSize: fontSize,
+      borderRadius: Math.max(10, constrainedWidth * 0.22),
+    };
+  }, [windowWidth]);
 
   useEffect(() => {
     if (timer > 0) {
@@ -136,16 +176,19 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
       style={styles.container}
       resizeMode="cover">
       <View style={styles.overlay} />
-      <FallingRupees count={12} />
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <FallingRupees count={8} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.keyboardView}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-      <ScrollView
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+        <ScrollView
           contentContainerStyle={[styles.scrollContent, {paddingTop: insets.top + 20}]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag">
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          removeClippedSubviews={false}
+          overScrollMode="never"
+          bounces={false}>
       <View style={styles.content}>
           <View style={styles.glassContainer}>
             <View style={styles.glassBaseLayer} />
@@ -176,7 +219,7 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
           </Text>
         </View>
 
-        <View style={styles.otpContainer}>
+        <View style={[styles.otpContainer, {gap: otpBoxDimensions.gap}]}>
           {otp.map((digit, index) => (
             <TextInput
               key={index}
@@ -184,6 +227,10 @@ export const OTPVerificationScreen: React.FC<OTPVerificationScreenProps> = ({
               style={[
                 styles.otpInput,
                 {
+                  width: otpBoxDimensions.width,
+                  height: otpBoxDimensions.height,
+                  fontSize: otpBoxDimensions.fontSize,
+                  borderRadius: otpBoxDimensions.borderRadius,
                   backgroundColor: theme.colors.surface,
                   borderColor: digit
                     ? theme.colors.primary
@@ -265,12 +312,13 @@ const styles = StyleSheet.create({
   },
   glassContainer: {
     borderRadius: 24,
-    overflow: 'visible',
+    overflow: 'hidden',
     backgroundColor: 'rgba(139, 69, 19, 0.18)',
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.4)',
     position: 'relative',
     marginBottom: 20,
+    marginTop: 40,
   },
   glassBaseLayer: {
     position: 'absolute',
@@ -316,10 +364,10 @@ const styles = StyleSheet.create({
   },
   glassContent: {
     padding: 24,
+    paddingBottom: 32,
     position: 'relative',
     zIndex: 1,
     borderRadius: 24,
-    overflow: 'hidden',
   },
   backButton: {
     marginTop: 20,
@@ -353,16 +401,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 32,
-    gap: 8,
-    paddingHorizontal: 4,
+    marginTop: 8,
+    paddingHorizontal: 0,
+    flexWrap: 'nowrap',
+    width: '100%',
   },
   otpInput: {
-    width: 48,
-    height: 60,
-    borderRadius: 12,
     borderWidth: 2,
     textAlign: 'center',
-    fontSize: 24,
     fontWeight: '600',
   },
   button: {

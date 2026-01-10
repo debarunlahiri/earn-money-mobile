@@ -103,7 +103,8 @@ export const Card: React.FC<CardProps> = ({
     <TouchableOpacity
       style={[styles.card, style]}
       onPress={onPress}
-      activeOpacity={0.8}>
+      activeOpacity={0.8}
+      hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
       <View style={styles.glassContainer}>
         <View style={styles.glassBaseLayer} />
         <View style={styles.glassFrostLayer} />

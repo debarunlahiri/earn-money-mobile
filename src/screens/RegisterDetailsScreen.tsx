@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useCallback} from 'react';
+import React, {useState, useMemo, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StatusBar,
   TouchableOpacity,
   Alert,
+  Keyboard,
 } from 'react-native';
 import {useTheme} from '../theme/ThemeContext';
 import {useAuth} from '../context/AuthContext';
@@ -327,10 +328,17 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
         });
         
         if (response.status === 'success' || response.status_code === 200) {
-          // Update userData with username and mobile to mark profile as complete
-          const updatedUserData = userData 
-            ? {...userData, username: userName, mobile: mobileNumber} 
-            : {username: userName, mobile: mobileNumber};
+          // Update userData with username, mobile, and set is_new to 'no' to mark profile as complete
+          // This will trigger the navigator to show the Home screen
+          const updatedUserData = {
+            ...(userData || {}),
+            username: userName,
+            mobile: mobileNumber,
+            is_new: 'no', // Mark profile as complete
+            // Also update token if returned from API
+            ...(response.userdata?.token && { token: response.userdata.token }),
+            ...(response.userdata?.userid && { userid: response.userdata.userid }),
+          };
           await login(updatedUserData);
           // Auth state change will automatically navigate to Home screen
         } else {
@@ -357,14 +365,20 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
       />
       <View style={styles.overlay} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        style={styles.container}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
             {paddingTop: insets.top + 20},
           ]}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          removeClippedSubviews={false}
+          overScrollMode="never"
+          bounces={false}>
           <View style={styles.header}>
             <FallingRupees count={8} />
             <Text style={titleStyle}>Complete Your Profile</Text>
@@ -719,20 +733,33 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
       </KeyboardAvoidingView>
 
       {/* Fixed Bottom Navigation Buttons - Outside KeyboardAvoidingView to prevent flicker */}
-      <View style={[styles.bottomButtonContainer, {paddingBottom: Math.max(insets.bottom, 20) + 8}]}>
+      <View 
+        style={[
+          styles.bottomButtonContainer, 
+          {paddingBottom: Math.max(insets.bottom, 20) + 8}
+        ]}
+        pointerEvents="box-none"
+      >
         {currentStep > 1 ? (
           <TouchableOpacity
-            onPress={handlePrevious}
-            style={styles.iconButton}>
+            onPress={() => {
+              Keyboard.dismiss();
+              handlePrevious();
+            }}
+            style={styles.iconButton}
+            activeOpacity={0.7}>
             <Icon name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
-        ) : null}
+        ) : <View style={styles.iconButtonPlaceholder} />}
         
         <View style={styles.buttonWrapper}>
           {currentStep < 3 ? (
             <Button
               title="Next"
-              onPress={handleNext}
+              onPress={() => {
+                Keyboard.dismiss();
+                handleNext();
+              }}
               disabled={
                 (currentStep === 1 && !isStep1Valid) ||
                 (currentStep === 2 && !isStep2Valid)
@@ -742,7 +769,10 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           ) : (
             <Button
               title={isSubmitting ? "Registering..." : "Complete Registration"}
-              onPress={handleComplete}
+              onPress={() => {
+                Keyboard.dismiss();
+                handleComplete();
+              }}
               disabled={!isFormValid || isSubmitting}
               loading={isSubmitting}
               style={styles.button}
@@ -903,10 +933,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 20,
-    paddingTop: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    paddingTop: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    // Prevent layout thrashing on Android
+    elevation: 8,
+    zIndex: 999,
+  },
+  iconButtonPlaceholder: {
+    width: 56,
+    height: 56,
   },
   navButton: {
     flexDirection: 'row',

@@ -18,7 +18,6 @@ import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 import {FallingRupees} from '../components/FallingRupee';
 import {useAuth} from '../context/AuthContext';
 import {getProfile, ProfileData} from '../services/api';
-import {Dialog} from '../components/Dialog';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -28,13 +27,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
   const {theme, isDark} = useTheme();
   const insets = useSafeAreaInsets();
   const {handleScroll, headerTranslateY} = useScrollVisibility();
-  const {userData, logout} = useAuth();
+  const {userData} = useAuth();
   
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSensitiveData, setShowSensitiveData] = useState(false);
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -266,13 +264,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
             <View style={styles.menuItemGlassInnerBorder} />
         <TouchableOpacity
               style={styles.menuItemGlassContent}
-          onPress={() => setShowLogoutDialog(true)}>
+          onPress={() => navigation.navigate('Settings')}>
           <View style={styles.menuItemLeft}>
-            <View style={[styles.iconContainer, {backgroundColor: 'rgba(255, 80, 80, 0.15)'}]}>
-              <Icon name="logout" size={20} color="#FF5050" />
+            <View style={[styles.iconContainer, {backgroundColor: 'rgba(212, 175, 55, 0.15)'}]}>
+              <Icon name="settings" size={20} color={theme.colors.primary} />
             </View>
             <Text style={[styles.menuItemText, {color: theme.colors.text}]}>
-              Logout
+              Settings
             </Text>
           </View>
           <Icon name="chevron-right" size={24} color={theme.colors.textSecondary} />
@@ -280,19 +278,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
           </View>
         </View>
       </ScrollView>
-
-      {/* Logout Confirmation Dialog */}
-      <Dialog
-        visible={showLogoutDialog}
-        type="logout"
-        title="Goodbye!"
-        message="Are you sure you want to logout?"
-        showCancel={true}
-        cancelText="Stay"
-        confirmText="Logout"
-        onClose={() => setShowLogoutDialog(false)}
-        onConfirm={logout}
-      />
     </ImageBackground>
   );
 };

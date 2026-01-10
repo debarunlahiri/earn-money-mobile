@@ -75,9 +75,30 @@ export const LeadDetailsScreen: React.FC<LeadDetailsScreenProps> = ({
         showsVerticalScrollIndicator={false}>
         
         <View style={styles.idSection}>
-          <View style={styles.idBadge}>
-            <Text style={styles.idText}>Lead #{lead.id}</Text>
+          <View style={styles.badgesRow}>
+            <View style={styles.idBadge}>
+              <Text style={styles.idText}>Lead #{lead.id}</Text>
+            </View>
+            <View style={[
+              styles.statusBadge,
+              lead.status === 'converted' && styles.statusBadgeConverted,
+              lead.status === 'new' && styles.statusBadgeNew,
+            ]}>
+              <View style={[
+                styles.statusDot,
+                lead.status === 'converted' && styles.statusDotConverted,
+                lead.status === 'new' && styles.statusDotNew,
+              ]} />
+              <Text style={[
+                styles.statusText,
+                lead.status === 'converted' && styles.statusTextConverted,
+                lead.status === 'new' && styles.statusTextNew,
+              ]}>{lead.status.toUpperCase()}</Text>
+            </View>
           </View>
+        </View>
+
+        <View style={styles.dateSection}>
           <Text style={styles.dateCreated}>
             Created: {formatDate(lead.created_at)}
           </Text>
@@ -168,10 +189,16 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   idSection: {
+    marginBottom: 12,
+  },
+  badgesRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dateSection: {
+    marginBottom: 8,
   },
   idBadge: {
     backgroundColor: 'rgba(212, 175, 55, 0.2)',
@@ -185,6 +212,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#D4AF37',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusBadgeNew: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  statusDotNew: {
+    backgroundColor: '#4CAF50',
+  },
+  statusTextNew: {
+    color: '#4CAF50',
+  },
+  statusBadgeConverted: {
+    backgroundColor: 'rgba(33, 150, 243, 0.15)',
+  },
+  statusDotConverted: {
+    backgroundColor: '#2196F3',
+  },
+  statusTextConverted: {
+    color: '#2196F3',
   },
   dateCreated: {
     fontSize: 12,

@@ -4,6 +4,8 @@ import {ThemeProvider, useTheme} from './src/theme/ThemeContext';
 import {AuthProvider} from './src/context/AuthContext';
 import {AccelerometerProvider} from './src/components/AccelerometerContext';
 import {ScrollVisibilityProvider} from './src/context/ScrollVisibilityContext';
+import {DialogProvider} from './src/context/DialogContext';
+import {SessionExpiredHandler} from './src/components/SessionExpiredHandler';
 import {AppNavigator} from './src/navigation/AppNavigator';
 
 const AppContent = () => {
@@ -24,11 +26,14 @@ const App = () => {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AccelerometerProvider>
-          <ScrollVisibilityProvider>
-      <AppContent />
-          </ScrollVisibilityProvider>
-        </AccelerometerProvider>
+        <DialogProvider>
+          <AccelerometerProvider>
+            <ScrollVisibilityProvider>
+              <AppContent />
+              <SessionExpiredHandler />
+            </ScrollVisibilityProvider>
+          </AccelerometerProvider>
+        </DialogProvider>
       </AuthProvider>
     </ThemeProvider>
   );

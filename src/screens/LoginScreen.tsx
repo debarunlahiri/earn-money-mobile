@@ -214,12 +214,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
   useEffect(() => {
     if (isValidPhone) {
       Animated.parallel([
-        Animated.spring(inputScaleAnim, {
-          toValue: 1.02,
-          tension: 100,
-          friction: 7,
-          useNativeDriver: true,
-        }),
         Animated.timing(inputBorderAnim, {
           toValue: 1,
           duration: 300,
@@ -241,12 +235,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
       ]).start();
     } else {
       Animated.parallel([
-        Animated.spring(inputScaleAnim, {
-          toValue: 1,
-          tension: 100,
-          friction: 7,
-          useNativeDriver: true,
-        }),
         Animated.timing(inputBorderAnim, {
           toValue: 0,
           duration: 300,
@@ -281,17 +269,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
 
   const handleBlur = () => {
     setIsFocused(false);
-    if (!isValidPhone) {
-      Animated.spring(inputScaleAnim, {
-        toValue: 1,
-        tension: 100,
-        friction: 7,
-        useNativeDriver: true,
-      }).start();
-    }
+    Animated.spring(inputScaleAnim, {
+      toValue: 1,
+      tension: 100,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handleLogin = async () => {
+    if (!isValidPhone) {
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit mobile number starting with 6-9.');
+      return;
+    }
+
     if (isValidPhone) {
       setIsLoading(true);
       try {
@@ -483,14 +474,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
             />
           </Animated.View>
 
-          <FallingRupees count={12} />
+          <FallingRupees count={8} />
 
           <View style={styles.overlay} />
         </ImageBackground>
       </Animated.View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.keyboardView}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
         <ScrollView
@@ -502,7 +493,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
           showsVerticalScrollIndicator={false}
           bounces={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag">
+          keyboardDismissMode="interactive"
+          removeClippedSubviews={false}
+          overScrollMode="never">
           <Animated.View
             style={[
               styles.translucentCard,
@@ -582,10 +575,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
                       onFocus={handleFocus}
                       onBlur={handleBlur}
                       keyboardType="phone-pad"
-                        maxLength={12}
+                        maxLength={15}
+                        selectionColor={theme.colors.primary}
                     />
                     </View>
                     <Animated.View
+                      pointerEvents="none"
                       style={[
                         styles.checkIcon,
                         {
@@ -605,7 +600,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               <Button
                 title={isLoading ? 'Sending OTP...' : 'Continue'}
                 onPress={handleLogin}
-                disabled={!isValidPhone || isLoading}
+                disabled={isLoading}
                 style={styles.button}
               />
               {isLoading && (
@@ -650,6 +645,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
+    zIndex: 0,
   },
   backgroundImage: {
     width: '100%',
@@ -660,10 +656,13 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    pointerEvents: 'none',
   },
   keyboardView: {
     flex: 1,
     backgroundColor: 'transparent',
+    zIndex: 10,
+    elevation: 10,
   },
   scrollContent: {
     flexGrow: 1,

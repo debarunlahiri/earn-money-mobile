@@ -45,7 +45,8 @@ export const Button: React.FC<ButtonProps> = ({
             style,
           ]}
           onPress={onPress}
-          disabled={disabled || loading}>
+          disabled={disabled || loading}
+          hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
           {loading ? (
             <ActivityIndicator color={theme.colors.background} />
           ) : (
@@ -71,7 +72,8 @@ export const Button: React.FC<ButtonProps> = ({
             style,
           ]}
           onPress={onPress}
-          disabled={disabled || loading}>
+          disabled={disabled || loading}
+          hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
           {loading ? (
             <ActivityIndicator color={theme.colors.primary} />
           ) : (
@@ -103,7 +105,8 @@ export const Button: React.FC<ButtonProps> = ({
           style,
         ]}
         onPress={onPress}
-        disabled={disabled || loading}>
+        disabled={disabled || loading}
+        hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
         {loading ? (
           <ActivityIndicator color={theme.colors.primary} />
         ) : (

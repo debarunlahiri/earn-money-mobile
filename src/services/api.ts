@@ -1,6 +1,23 @@
 import {logRequest, logResponse, logError} from '../utils/apiLogger';
+import {emitLogoutRequired} from '../utils/authEventEmitter';
 
 const API_BASE_URL = 'https://api.erpvisit.com/api_money.php';
+
+/**
+ * Checks if the API response indicates an authentication failure (401)
+ * If so, emits a logout event to trigger automatic logout
+ */
+const checkForAuthError = (data: {
+  status?: string;
+  status_code?: number;
+  message?: string;
+}) => {
+  if (data.status === 'error' && data.status_code === 401) {
+    emitLogoutRequired(data.message || 'Invalid user or token');
+    return true;
+  }
+  return false;
+};
 
 export interface VerifyMobileResponse {
   status: string;
@@ -89,6 +106,12 @@ export interface RegisterUserResponse {
   status: string;
   status_code: number;
   message: string;
+  userdata?: {
+    userid: number;
+    username: string;
+    mobile: string;
+    token: number;
+  };
 }
 
 /**
@@ -171,6 +194,7 @@ export const getProfile = async (
 
     const data = await response.json();
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
     return data;
   } catch (error) {
     logError(API_BASE_URL, error, Date.now() - startTime);
@@ -216,6 +240,7 @@ export const addLead = async (params: {
 
     const data = await response.json();
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
     return data;
   } catch (error) {
     logError(API_BASE_URL, error, Date.now() - startTime);
@@ -225,6 +250,7 @@ export const addLead = async (params: {
 
 export interface Lead {
   id: number;
+  status: string;
   name: string;
   mobile: string;
   address: string;
@@ -263,6 +289,254 @@ export const viewLeads = async (
 
     const data = await response.json();
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface Notification {
+  title: string;
+  mess: string;
+  date: string;
+  time: string;
+}
+
+export interface NotificationResponse {
+  status: string;
+  status_code: number;
+  userdata?: Notification[];
+}
+
+/**
+ * Fetches notifications for the user
+ */
+export const getNotifications = async (
+  userid: string | number,
+  token: string | number,
+): Promise<NotificationResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'notification');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface WalletData {
+  amount: string;
+}
+
+export interface WalletResponse {
+  status: string;
+  status_code: number;
+  userdata?: WalletData;
+}
+
+/**
+ * Fetches wallet balance for the user
+ */
+export const getWallet = async (
+  userid: string | number,
+  token: string | number,
+): Promise<WalletResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'wallet');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface PaymentHistoryItem {
+  title: 'credit' | 'debit';
+  status: 'success' | 'pending' | 'failed';
+  mess: string;
+  date: string;
+  time: string;
+}
+
+export interface PaymentHistoryResponse {
+  status: string;
+  status_code: number;
+  userdata?: PaymentHistoryItem[];
+}
+
+/**
+ * Fetches payment history for the user
+ */
+export const getPaymentHistory = async (
+  userid: string | number,
+  token: string | number,
+): Promise<PaymentHistoryResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'payment_history');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface WithdrawalRequestResponse {
+  status: string;
+  status_code: number;
+  message: string;
+}
+
+/**
+ * Submits a withdrawal request
+ */
+export const submitWithdrawalRequest = async (
+  userid: string | number,
+  token: string | number,
+  withdrawal_amt: string | number,
+): Promise<WithdrawalRequestResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'withdrawal_req');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+  formData.append('withdrawal_amt', withdrawal_amt.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface UnreadNotificationData {
+  unread_count: string;
+}
+
+export interface UnreadNotificationResponse {
+  status: string;
+  status_code: number;
+  userdata?: UnreadNotificationData;
+}
+
+/**
+ * Fetches unread notification count for the user
+ */
+export const getUnreadNotificationCount = async (
+  userid: string | number,
+  token: string | number,
+): Promise<UnreadNotificationResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'unread_notification');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface UpdateUnreadNotificationResponse {
+  status: string;
+  status_code: number;
+  userdata?: string;
+}
+
+/**
+ * Marks all notifications as read for the user
+ */
+export const updateUnreadNotification = async (
+  userid: string | number,
+  token: string | number,
+): Promise<UpdateUnreadNotificationResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'update_unread_notification');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
     return data;
   } catch (error) {
     logError(API_BASE_URL, error, Date.now() - startTime);

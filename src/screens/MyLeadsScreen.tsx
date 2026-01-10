@@ -21,6 +21,7 @@ import {FallingRupees} from '../components/FallingRupee';
 import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 import {useAuth} from '../context/AuthContext';
 import {viewLeads, Lead} from '../services/api';
+import {Carousel, CarouselItem} from '../components/Carousel';
 
 interface MyLeadsScreenProps {
   navigation: any;
@@ -40,6 +41,55 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Carousel items for promotional content
+  const carouselItems: CarouselItem[] = [
+    {
+      id: '1',
+      gradient: ['rgba(212, 175, 55, 0.3)', 'rgba(212, 175, 55, 0.05)'],
+      component: (
+        <View style={styles.carouselCard}>
+          <View style={styles.carouselIconContainer}>
+            <Icon name="trending-up" size={32} color="#D4AF37" />
+          </View>
+          <Text style={styles.carouselTitle}>Maximize Your Earnings</Text>
+          <Text style={styles.carouselDescription}>
+            Convert more leads and earn higher commissions
+          </Text>
+        </View>
+      ),
+    },
+    {
+      id: '2',
+      gradient: ['rgba(76, 175, 80, 0.3)', 'rgba(76, 175, 80, 0.05)'],
+      component: (
+        <View style={styles.carouselCard}>
+          <View style={[styles.carouselIconContainer, {backgroundColor: 'rgba(76, 175, 80, 0.15)'}]}>
+            <Icon name="verified" size={32} color="#4CAF50" />
+          </View>
+          <Text style={styles.carouselTitle}>Quality Leads</Text>
+          <Text style={styles.carouselDescription}>
+            Get verified and genuine property enquiries
+          </Text>
+        </View>
+      ),
+    },
+    {
+      id: '3',
+      gradient: ['rgba(33, 150, 243, 0.3)', 'rgba(33, 150, 243, 0.05)'],
+      component: (
+        <View style={styles.carouselCard}>
+          <View style={[styles.carouselIconContainer, {backgroundColor: 'rgba(33, 150, 243, 0.15)'}]}>
+            <Icon name="support-agent" size={32} color="#2196F3" />
+          </View>
+          <Text style={styles.carouselTitle}>24/7 Support</Text>
+          <Text style={styles.carouselDescription}>
+            Get instant help whenever you need assistance
+          </Text>
+        </View>
+      ),
+    },
+  ];
 
   const fetchLeads = useCallback(async () => {
     if (!userData?.userid || !userData?.token) {
@@ -147,9 +197,21 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
                   <View style={styles.nameTextContainer}>
                     <Text style={styles.leadName} numberOfLines={1}>{item.name}</Text>
                     <View style={styles.leadMetaRow}>
-                      <View style={styles.statusBadge}>
-                        <View style={styles.statusDot} />
-                        <Text style={styles.statusText}>New Lead</Text>
+                      <View style={[
+                        styles.statusBadge,
+                        item.status === 'converted' && styles.statusBadgeConverted,
+                        item.status === 'new' && styles.statusBadgeNew,
+                      ]}>
+                        <View style={[
+                          styles.statusDot,
+                          item.status === 'converted' && styles.statusDotConverted,
+                          item.status === 'new' && styles.statusDotNew,
+                        ]} />
+                        <Text style={[
+                          styles.statusText,
+                          item.status === 'converted' && styles.statusTextConverted,
+                          item.status === 'new' && styles.statusTextNew,
+                        ]}>{item.status.toUpperCase()}</Text>
                       </View>
                     </View>
                   </View>
@@ -269,9 +331,24 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
   const renderHeader = () => (
     <View style={styles.listHeader}>
-      <Text style={styles.totalLeadsText}>
-        Total Leads: {leads.length}
-      </Text>
+      {/* Carousel Section */}
+      <Carousel
+        items={carouselItems}
+        autoPlay={true}
+        autoPlayInterval={4000}
+        height={160}
+        showPagination={true}
+      />
+      
+      {/* Total Leads Count */}
+      <View style={styles.leadsCountContainer}>
+        <View style={styles.leadsCountBadge}>
+          <Icon name="list-alt" size={18} color="#D4AF37" />
+          <Text style={styles.totalLeadsText}>
+            Total Leads: {leads.length}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 
@@ -437,6 +514,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -1,
+    marginTop: 10,
   },
   loadingContainer: {
     flex: 1,
@@ -459,12 +537,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   listHeader: {
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  leadsCountContainer: {
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  leadsCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
   },
   totalLeadsText: {
     fontSize: 14,
-    color: '#888',
-    fontWeight: '600',
+    color: '#D4AF37',
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  // Carousel card styles
+  carouselCard: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  carouselIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  carouselTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  carouselDescription: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   // Card wrapper and gradient border
   leadCardWrapper: {
@@ -570,6 +693,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#4CAF50',
     fontWeight: '600',
+  },
+  statusBadgeNew: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  statusDotNew: {
+    backgroundColor: '#4CAF50',
+  },
+  statusTextNew: {
+    color: '#4CAF50',
+  },
+  statusBadgeConverted: {
+    backgroundColor: 'rgba(33, 150, 243, 0.15)',
+  },
+  statusDotConverted: {
+    backgroundColor: '#2196F3',
+  },
+  statusTextConverted: {
+    color: '#2196F3',
   },
   
   // Rank badge

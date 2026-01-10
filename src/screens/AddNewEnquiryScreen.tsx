@@ -14,6 +14,7 @@ import {useTheme} from '../theme/ThemeContext';
 import {Button} from '../components/Button';
 import {Input} from '../components/Input';
 import {Dialog} from '../components/Dialog';
+import {EnhancedTouchable} from '../components/EnhancedTouchable';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {INDIA_STATES} from '../data/indiaStates';
 import {INDIA_CITIES, getCitiesByState} from '../data/indiaCities';
@@ -39,10 +40,12 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [enquiryFor, setEnquiryFor] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [email, setEmail] = useState('');
+  const [propertyType, setPropertyType] = useState('');
   const [propertySearchFor, setPropertySearchFor] = useState('');
   const [propertySearchingIn, setPropertySearchingIn] = useState('');
   const [minBudget, setMinBudget] = useState(0);
   const [maxBudget, setMaxBudget] = useState(5000000);
+  const [showPropertyTypePicker, setShowPropertyTypePicker] = useState(false);
   const [showPropertySearchForPicker, setShowPropertySearchForPicker] =
     useState(false);
   const [activeSlider, setActiveSlider] = useState<'min' | 'max' | null>(null);
@@ -195,6 +198,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     }
   }, []);
 
+  const propertyTypeOptions = ['Rent', 'Purchase', 'Plot'];
   const propertySearchOptions = ['Sale', 'Purchase'];
 
   const formatEnquiryName = (text: string) => {
@@ -295,6 +299,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     if (
       !enquiryFor.trim() ||
       !mobileNumber.trim() ||
+      !propertyType ||
       !propertySearchFor ||
       !propertySearchingIn.trim()
     ) {
@@ -311,6 +316,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     try {
       // Build the requirement string with all relevant details
       const requirementDetails = [
+        `Property Type: ${propertyType}`,
         `Property Search: ${propertySearchFor}`,
         `Budget: ${formatCurrency(minBudget)} - ${formatCurrency(maxBudget)}`,
         getStateName(selectedState) && `State: ${getStateName(selectedState)}`,
@@ -369,11 +375,12 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             paddingTop: insets.top,
           },
         ]}>
-        <TouchableOpacity
+        <EnhancedTouchable
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.goBack()}
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
           <Icon name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        </EnhancedTouchable>
         <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
           Add New Enquiry
         </Text>
@@ -421,11 +428,85 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             }
           />
 
-          <TouchableOpacity
-            onPress={() =>
-              setShowPropertySearchForPicker(!showPropertySearchForPicker)
-            }
-            activeOpacity={1}>
+          <EnhancedTouchable
+            onPress={() => {
+              setShowPropertyTypePicker(!showPropertyTypePicker);
+              setShowPropertySearchForPicker(false);
+            }}
+            activeOpacity={1}
+            hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
+            <Input
+              label="Property Type *"
+              value={propertyType}
+              placeholder="Select property type"
+              editable={false}
+              pointerEvents="none"
+              leftIcon={
+                <Icon
+                  name="home"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              }
+              rightIcon={
+                <Icon
+                  name="arrow-drop-down"
+                  size={24}
+                  color={theme.colors.textSecondary}
+                />
+              }
+            />
+          </EnhancedTouchable>
+
+          {showPropertyTypePicker && (
+            <View
+              style={[
+                styles.pickerContainer,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  borderWidth: 1,
+                },
+              ]}>
+              {propertyTypeOptions.map(option => (
+                <EnhancedTouchable
+                  key={option}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.pickerItem,
+                    {
+                      backgroundColor: theme.colors.surface,
+                      borderBottomColor: theme.colors.border,
+                    },
+                  ]}
+                  hitSlopSize="small"
+                  onPress={() => {
+                    setPropertyType(option);
+                    setShowPropertyTypePicker(false);
+                  }}>
+                  <Text
+                    style={[
+                      styles.pickerText,
+                      {
+                        color: theme.colors.text,
+                        fontWeight:
+                          propertyType === option ? '600' : '400',
+                      },
+                    ]}>
+                    {option}
+                  </Text>
+                </EnhancedTouchable>
+              ))}
+            </View>
+          )}
+
+          <EnhancedTouchable
+            onPress={() => {
+              setShowPropertySearchForPicker(!showPropertySearchForPicker);
+              setShowPropertyTypePicker(false);
+            }}
+            activeOpacity={1}
+            hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
             <Input
               label="Property Search For *"
               value={propertySearchFor}
@@ -447,7 +528,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                 />
               }
             />
-          </TouchableOpacity>
+          </EnhancedTouchable>
 
           {showPropertySearchForPicker && (
             <View
@@ -460,7 +541,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                 },
               ]}>
               {propertySearchOptions.map(option => (
-                <TouchableOpacity
+                <EnhancedTouchable
                   key={option}
                   activeOpacity={0.7}
                   style={[
@@ -470,6 +551,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                       borderBottomColor: theme.colors.border,
                     },
                   ]}
+                  hitSlopSize="small"
                   onPress={() => {
                     setPropertySearchFor(option);
                     setShowPropertySearchForPicker(false);
@@ -485,7 +567,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                     ]}>
                     {option}
                   </Text>
-                </TouchableOpacity>
+                </EnhancedTouchable>
               ))}
             </View>
           )}
@@ -551,12 +633,13 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
           />
 
           {/* State Dropdown */}
-          <TouchableOpacity
+          <EnhancedTouchable
             onPress={() => {
               setShowStatePicker(!showStatePicker);
               setShowCityPicker(false);
             }}
-            activeOpacity={1}>
+            activeOpacity={1}
+            hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
             <Input
               label="State *"
               value={getStateName(selectedState)}
@@ -578,7 +661,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                 />
               }
             />
-          </TouchableOpacity>
+          </EnhancedTouchable>
 
           {showStatePicker && (
             <View
@@ -592,7 +675,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
               ]}>
               <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
                 {sortedStates.map(state => (
-                  <TouchableOpacity
+                  <EnhancedTouchable
                     key={state.id}
                     activeOpacity={0.7}
                     style={[
@@ -602,6 +685,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                         borderBottomColor: theme.colors.border,
                       },
                     ]}
+                    hitSlopSize="small"
                     onPress={() => handleStateChange(state.id)}>
                     <Text
                       style={[
@@ -614,14 +698,14 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                       ]}>
                       {state.name}
                     </Text>
-                  </TouchableOpacity>
+                  </EnhancedTouchable>
                 ))}
               </ScrollView>
             </View>
           )}
 
           {/* City Dropdown */}
-          <TouchableOpacity
+          <EnhancedTouchable
             onPress={() => {
               if (selectedState) {
                 setShowCityPicker(!showCityPicker);
@@ -630,7 +714,8 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                 showDialog('Please select a state first', undefined, 'info');
               }
             }}
-            activeOpacity={1}>
+            activeOpacity={1}
+            hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
             <Input
               label="City *"
               value={getCityName(selectedCity)}
@@ -652,7 +737,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                 />
               }
             />
-          </TouchableOpacity>
+          </EnhancedTouchable>
 
           {showCityPicker && filteredCities.length > 0 && (
             <View
@@ -666,7 +751,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
               ]}>
               <ScrollView style={styles.pickerScrollView} nestedScrollEnabled>
                 {filteredCities.map(city => (
-                  <TouchableOpacity
+                  <EnhancedTouchable
                     key={city.id}
                     activeOpacity={0.7}
                     style={[
@@ -676,6 +761,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                         borderBottomColor: theme.colors.border,
                       },
                     ]}
+                    hitSlopSize="small"
                     onPress={() => handleCityChange(city.id)}>
                     <Text
                       style={[
@@ -688,7 +774,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                       ]}>
                       {city.name}
                     </Text>
-                  </TouchableOpacity>
+                  </EnhancedTouchable>
                 ))}
               </ScrollView>
             </View>
@@ -860,6 +946,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     maxHeight: 200,
     overflow: 'hidden',
+    elevation: 5,
+    zIndex: 1000,
   },
   pickerScrollView: {
     maxHeight: 200,
@@ -867,9 +955,9 @@ const styles = StyleSheet.create({
   pickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    minHeight: 44,
+    minHeight: 48,
     borderBottomWidth: 1,
   },
   pickerText: {
