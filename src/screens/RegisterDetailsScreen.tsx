@@ -27,6 +27,8 @@ import {
   isValidIndianIFSC,
   formatIFSCCode,
   formatIndianPhoneNumber,
+  isValidUPI,
+  formatUPIId,
 } from '../utils/phoneUtils';
 import {registerUser} from '../services/api';
 
@@ -50,12 +52,14 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
   const [name, setName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [address, setAddress] = useState('');
   const [sector, setSector] = useState('');
   
   // Validation states
   const [accountNumberError, setAccountNumberError] = useState('');
   const [ifscCodeError, setIfscCodeError] = useState('');
+  const [upiIdError, setUpiIdError] = useState('');
   
   // Location dropdown states
   const [selectedState, setSelectedState] = useState('');
@@ -189,8 +193,11 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
   }, [name]);
 
   const isStep2Valid = useMemo(() => {
-    return isValidIndianAccountNumber(accountNumber) && isValidIndianIFSC(ifscCode);
-  }, [accountNumber, ifscCode]);
+    // Either bank details (Account Number + IFSC) OR UPI ID must be provided
+    const hasBankDetails = isValidIndianAccountNumber(accountNumber) && isValidIndianIFSC(ifscCode);
+    const hasUPI = isValidUPI(upiId);
+    return hasBankDetails || hasUPI;
+  }, [accountNumber, ifscCode, upiId]);
 
   const isStep3Valid = useMemo(() => {
     return address.trim() && pincode.length === 6 && !pincodeError && selectedState && selectedCity;
@@ -242,22 +249,54 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
     }
   };
 
+  const handleUPIChange = (text: string) => {
+    const formatted = formatUPIId(text);
+    setUpiId(formatted);
+    if (formatted.length > 0 && !isValidUPI(formatted)) {
+      setUpiIdError('Invalid UPI format. Example: 9876543210@paytm');
+    } else {
+      setUpiIdError('');
+    }
+  };
+
   const handleComplete = async () => {
-    // Validate all fields
-    const isAccountValid = isValidIndianAccountNumber(accountNumber);
-    const isIFSCValid = isValidIndianIFSC(ifscCode);
+    // Validate: Either bank details OR UPI ID must be provided
+    const isAccountValid = accountNumber.trim() ? isValidIndianAccountNumber(accountNumber) : true;
+    const isIFSCValid = ifscCode.trim() ? isValidIndianIFSC(ifscCode) : true;
+    const isUPIValid = upiId.trim() ? isValidUPI(upiId) : true;
     
-    if (!isAccountValid) {
+    const hasBankDetails = isValidIndianAccountNumber(accountNumber) && isValidIndianIFSC(ifscCode);
+    const hasUPI = isValidUPI(upiId);
+    
+    // Check if at least one payment method is provided
+    if (!hasBankDetails && !hasUPI) {
+      Alert.alert('Payment Details Required', 'Please provide either Bank Account details (Account Number + IFSC Code) OR UPI ID.');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    // Validate individual fields if they are filled
+    if (accountNumber.trim() && !isAccountValid) {
       setAccountNumberError('Account number must be 9-18 digits');
     }
-    if (!isIFSCValid) {
+    if (ifscCode.trim() && !isIFSCValid) {
       setIfscCodeError('Invalid IFSC format. Format: XXXX0XXXXX');
+    }
+    if (upiId.trim() && !isUPIValid) {
+      setUpiIdError('Invalid UPI format. Example: 9876543210@paytm');
+    }
+    
+    // If validation errors exist, stop submission
+    if ((accountNumber.trim() && !isAccountValid) || 
+        (ifscCode.trim() && !isIFSCValid) || 
+        (upiId.trim() && !isUPIValid)) {
+      setIsSubmitting(false);
+      return;
     }
     
     if (
       name.trim() && 
-      isAccountValid && 
-      isIFSCValid && 
+      (hasBankDetails || hasUPI) &&
       address.trim() && 
       pincode.length === 6 &&
       selectedState && 
@@ -282,8 +321,9 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
         // Get mobile number: first from userData, then from phoneNumber route param
         const mobileNumber = userData?.mobile?.trim() || formatIndianPhoneNumber(phoneNumber || '');
         const userName = name.trim();
-        const acNo = accountNumber.replace(/\s/g, '').trim();
-        const ifsc = ifscCode.trim();
+        const acNo = accountNumber.replace(/\s/g, '').trim() || '';
+        const ifsc = ifscCode.trim() || '';
+        const upi = upiId.trim() || '';
         
         // Validate required fields are not empty
         if (!userId) {
@@ -301,16 +341,7 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           setIsSubmitting(false);
           return;
         }
-        if (!acNo) {
-          Alert.alert('Error', 'Please enter your account number.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (!ifsc) {
-          Alert.alert('Error', 'Please enter IFSC code.');
-          setIsSubmitting(false);
-          return;
-        }
+        // No need to check individual fields since we already validated either/or above
         if (!formattedAddress) {
           Alert.alert('Error', 'Please enter your address.');
           setIsSubmitting(false);
@@ -322,6 +353,7 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           userid: userId,
           ac_no: acNo,
           ifsc_code: ifsc,
+          upi_id: upi,
           mobile: mobileNumber,
           username: userName,
           address: formattedAddress,
@@ -487,8 +519,12 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
             {/* Step 2: Bank Details */}
             {currentStep === 2 && (
               <>
+                <Text style={[styles.sectionHint, {color: theme.colors.textSecondary}]}>
+                  Provide either Bank Account details OR UPI ID
+                </Text>
+                
                 <Input
-                  label="Account Number"
+                  label="Account Number (Optional)"
                   value={accountNumber}
                   onChangeText={handleAccountNumberChange}
                   placeholder="Enter account number (9-18 digits)"
@@ -501,10 +537,15 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
                       color={theme.colors.textSecondary}
                     />
                   }
+                  rightIcon={
+                    accountNumber.length > 0 && isValidIndianAccountNumber(accountNumber) ? (
+                      <Icon name="check-circle" size={20} color="#4CAF50" />
+                    ) : null
+                  }
                 />
 
                 <Input
-                  label="IFSC Code"
+                  label="IFSC Code (Optional)"
                   value={ifscCode}
                   onChangeText={handleIFSCChange}
                   placeholder="Enter IFSC (e.g., SBIN0001234)"
@@ -517,6 +558,40 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
                       size={20}
                       color={theme.colors.textSecondary}
                     />
+                  }
+                  rightIcon={
+                    ifscCode.length === 11 && isValidIndianIFSC(ifscCode) ? (
+                      <Icon name="check-circle" size={20} color="#4CAF50" />
+                    ) : null
+                  }
+                />
+
+                {/* OR Separator */}
+                <View style={styles.orSeparator}>
+                  <View style={styles.orLine} />
+                  <Text style={[styles.orText, {color: theme.colors.textSecondary}]}>OR</Text>
+                  <View style={styles.orLine} />
+                </View>
+
+                <Input
+                  label="UPI ID (Optional)"
+                  value={upiId}
+                  onChangeText={handleUPIChange}
+                  placeholder="Enter UPI ID (e.g., 9876543210@paytm)"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  error={upiIdError}
+                  leftIcon={
+                    <Icon
+                      name="payment"
+                      size={20}
+                      color={theme.colors.textSecondary}
+                    />
+                  }
+                  rightIcon={
+                    upiId.length > 0 && isValidUPI(upiId) ? (
+                      <Icon name="check-circle" size={20} color="#4CAF50" />
+                    ) : null
                   }
                 />
               </>
@@ -1070,5 +1145,29 @@ const styles = StyleSheet.create({
   },
   pickerText: {
     fontSize: 16,
+  },
+  sectionHint: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontStyle: 'italic',
+    opacity: 0.9,
+  },
+  orSeparator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    paddingHorizontal: 20,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  orText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginHorizontal: 16,
+    opacity: 0.8,
   },
 });

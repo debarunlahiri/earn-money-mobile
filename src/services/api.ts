@@ -121,6 +121,7 @@ export const registerUser = async (params: {
   userid: string;
   ac_no: string;
   ifsc_code: string;
+  upi_id: string;
   mobile: string;
   username: string;
   address: string;
@@ -130,6 +131,7 @@ export const registerUser = async (params: {
   formData.append('userid', params.userid);
   formData.append('ac_no', params.ac_no);
   formData.append('ifsc_code', params.ifsc_code);
+  formData.append('upi_id', params.upi_id);
   formData.append('mobile', params.mobile);
   formData.append('username', params.username);
   formData.append('address', params.address);
