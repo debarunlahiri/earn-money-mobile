@@ -14,11 +14,37 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.earnmoneyapp"
+      "bundleIdentifier": "com.debarunlahiri.earnmoney",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to fetch your current address for registration."
+      }
     },
     "android": {
-      "package": "com.earnmoneyapp"
+      "package": "com.debarunlahiri.earnmoney",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#D4AF37"
+      },
+      "googleServicesFile": "./google-services.json",
+      "useNextNotificationsApi": true
     },
+    "notification": {
+      "color": "#D4AF37",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Earn Money"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#D4AF37"
+        }
+      ]
+    ],
     "web": {},
     "newArchEnabled": true,
     "extra": {

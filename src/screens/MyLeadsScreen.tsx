@@ -384,7 +384,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
               <Icon name="arrow-back" size={24} color={theme.colors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-              My Leads
+              Home
             </Text>
             <View style={styles.placeholder} />
           </View>
@@ -410,7 +410,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           <View style={styles.headerOverlay} />
           <FallingRupees count={10} />
           <Text style={[styles.simpleHeaderTitle, {color: theme.colors.text}]}>
-            My Leads
+            Home
           </Text>
         </View>
       )}
@@ -439,7 +439,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          ListHeaderComponent={leads.length > 0 ? renderHeader : null}
+          ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
         />
       )}

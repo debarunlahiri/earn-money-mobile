@@ -155,7 +155,7 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({navigation}) => {
         <FallingRupees count={12} />
         <View style={styles.headerRow}>
           <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-            My Wallet
+            Wallet
           </Text>
           <TouchableOpacity
             onPress={handleRefresh}

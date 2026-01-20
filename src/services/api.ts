@@ -545,3 +545,44 @@ export const updateUnreadNotification = async (
     throw error;
   }
 };
+
+export interface SaveFCMTokenResponse {
+  status: string;
+  status_code: number;
+  message: string;
+}
+
+/**
+ * Saves FCM token to the backend
+ */
+export const saveFCMToken = async (
+  userid: string | number,
+  token: string | number,
+  fcm_token: string,
+  device_type: string = 'android',
+): Promise<SaveFCMTokenResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'save_fcm_token');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+  formData.append('fcm_token', fcm_token);
+  formData.append('device_type', device_type);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};

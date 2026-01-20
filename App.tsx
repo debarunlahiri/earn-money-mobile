@@ -2,6 +2,7 @@ import React from 'react';
 import {StatusBar} from 'react-native';
 import {ThemeProvider, useTheme} from './src/theme/ThemeContext';
 import {AuthProvider} from './src/context/AuthContext';
+import {NotificationProvider} from './src/context/NotificationContext';
 import {AccelerometerProvider} from './src/components/AccelerometerContext';
 import {ScrollVisibilityProvider} from './src/context/ScrollVisibilityContext';
 import {DialogProvider} from './src/context/DialogContext';
@@ -26,14 +27,16 @@ const App = () => {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <DialogProvider>
-          <AccelerometerProvider>
-            <ScrollVisibilityProvider>
-              <AppContent />
-              <SessionExpiredHandler />
-            </ScrollVisibilityProvider>
-          </AccelerometerProvider>
-        </DialogProvider>
+        <NotificationProvider>
+          <DialogProvider>
+            <AccelerometerProvider>
+              <ScrollVisibilityProvider>
+                <AppContent />
+                <SessionExpiredHandler />
+              </ScrollVisibilityProvider>
+            </AccelerometerProvider>
+          </DialogProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

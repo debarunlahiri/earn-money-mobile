@@ -31,6 +31,7 @@ import {
   formatUPIId,
 } from '../utils/phoneUtils';
 import {registerUser} from '../services/api';
+import * as Location from 'expo-location';
 
 interface RegisterDetailsScreenProps {
   navigation: any;
@@ -71,6 +72,9 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
   const [pincode, setPincode] = useState('');
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeError, setPincodeError] = useState('');
+  
+  // Location states
+  const [locationLoading, setLocationLoading] = useState(false);
   
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -175,6 +179,71 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
       }
     }
   }, []);
+
+  // Handle current location fetch
+  const getCurrentLocation = useCallback(async () => {
+    setLocationLoading(true);
+    try {
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Denied',
+          'Location permission is required to fetch your current address. Please enable location access in your device settings.'
+        );
+        setLocationLoading(false);
+        return;
+      }
+
+      // Get current position
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      // Reverse geocode to get address
+      const [addressData] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      if (addressData) {
+        // Build address string from available components
+        const addressParts = [];
+        if (addressData.streetNumber) addressParts.push(addressData.streetNumber);
+        if (addressData.street) addressParts.push(addressData.street);
+        
+        const addressLine = addressParts.join(' ');
+        if (addressLine) {
+          setAddress(addressLine);
+        }
+
+        // Set sector/locality
+        if (addressData.subregion || addressData.district) {
+          setSector(addressData.subregion || addressData.district || '');
+        }
+
+        // Set postal code
+        if (addressData.postalCode) {
+          setPincode(addressData.postalCode);
+          // Trigger pincode lookup to auto-fill state and city
+          handlePincodeChange(addressData.postalCode);
+        }
+
+        Alert.alert('Success', 'Current location fetched successfully!');
+      } else {
+        Alert.alert('Error', 'Unable to fetch address details for your location.');
+      }
+    } catch (error) {
+      console.error('Location error:', error);
+      Alert.alert(
+        'Error',
+        'Failed to fetch current location. Please ensure location services are enabled and try again.'
+      );
+    } finally {
+      setLocationLoading(false);
+    }
+  }, [handlePincodeChange]);
   
   // Memoize styles to prevent re-renders
   const titleStyle = useMemo(
@@ -614,9 +683,16 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
                     />
                   }
                   rightIcon={
-                    <Text style={{color: address.length >= 70 ? '#FF6B6B' : theme.colors.textSecondary, fontSize: 12}}>
-                      {address.length}/80
-                    </Text>
+                    <TouchableOpacity 
+                      onPress={getCurrentLocation}
+                      disabled={locationLoading}
+                      activeOpacity={0.7}>
+                      <Icon 
+                        name={locationLoading ? "hourglass-empty" : "my-location"} 
+                        size={24} 
+                        color={locationLoading ? theme.colors.textSecondary : theme.colors.primary} 
+                      />
+                    </TouchableOpacity>
                   }
                 />
                 <Input
