@@ -125,6 +125,7 @@ export const registerUser = async (params: {
   mobile: string;
   username: string;
   address: string;
+  device_token?: string;
 }): Promise<RegisterUserResponse> => {
   const formData = new FormData();
   formData.append('action', 'register');
@@ -135,6 +136,9 @@ export const registerUser = async (params: {
   formData.append('mobile', params.mobile);
   formData.append('username', params.username);
   formData.append('address', params.address);
+  if (params.device_token) {
+    formData.append('device_token', params.device_token);
+  }
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);

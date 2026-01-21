@@ -29,7 +29,7 @@ interface AddNewEnquiryScreenProps {
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const SLIDER_WIDTH = SCREEN_WIDTH - 80;
 const MIN_BUDGET = 0;
-const MAX_BUDGET = 10000000;
+const MAX_BUDGET = 100000000; // 10 Crores
 
 export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   navigation,
@@ -44,7 +44,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [propertySearchFor, setPropertySearchFor] = useState('');
   const [propertySearchingIn, setPropertySearchingIn] = useState('');
   const [minBudget, setMinBudget] = useState(0);
-  const [maxBudget, setMaxBudget] = useState(5000000);
+  const [maxBudget, setMaxBudget] = useState(100000000); // 10 Crores
   const [showPropertyTypePicker, setShowPropertyTypePicker] = useState(false);
   const [showPropertySearchForPicker, setShowPropertySearchForPicker] =
     useState(false);

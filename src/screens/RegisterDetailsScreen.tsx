@@ -9,13 +9,15 @@ import {
   ImageBackground,
   StatusBar,
   TouchableOpacity,
-  Alert,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import {useTheme} from '../theme/ThemeContext';
 import {useAuth} from '../context/AuthContext';
+import {useNotifications} from '../context/NotificationContext';
 import {Button} from '../components/Button';
 import {Input} from '../components/Input';
+import {Toast, ToastType} from '../components/Toast';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {FallingRupees} from '../components/FallingRupee';
@@ -44,6 +46,7 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
 }) => {
   const {theme} = useTheme();
   const {login, userData: authUserData} = useAuth();
+  const {fcmToken} = useNotifications();
   const insets = useSafeAreaInsets();
   
   // Get userData from route params (passed from OTP screen) or from auth context
@@ -79,6 +82,11 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Toast states
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<ToastType>('success');
+  
 
   
   // Get sorted states alphabetically
@@ -98,6 +106,13 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
   const getCityName = (cityId: string) => {
     const city = INDIA_CITIES.find(c => c.id === cityId);
     return city ? city.name : '';
+  };
+  
+  // Show toast notification
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
   };
   
   // Handle state change - reset city
@@ -180,26 +195,68 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
     }
   }, []);
 
-  // Handle current location fetch
+
+  // Handle current location fetch with Realme/ColorOS device compatibility
   const getCurrentLocation = useCallback(async () => {
     setLocationLoading(true);
     try {
-      // Request location permissions
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission Denied',
-          'Location permission is required to fetch your current address. Please enable location access in your device settings.'
-        );
+      // Check if location services are enabled first (important for Realme devices)
+      const isLocationEnabled = await Location.hasServicesEnabledAsync();
+      if (!isLocationEnabled) {
+        showToast('Please enable Location Services in your device settings.', 'warning');
         setLocationLoading(false);
         return;
       }
 
-      // Get current position
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        showToast('Location permission is required. Please enable location access in settings.', 'warning');
+        setLocationLoading(false);
+        return;
+      }
+
+      // Try to get location with timeout and fallback accuracy levels
+      // Realme devices often need lower accuracy or longer timeout
+      let location: Location.LocationObject | null = null;
+      const accuracyLevels = [
+        Location.Accuracy.Balanced,
+        Location.Accuracy.Low,
+        Location.Accuracy.Lowest,
+      ];
+
+      for (let i = 0; i < accuracyLevels.length; i++) {
+        try {
+          console.log(`Attempting to get location with accuracy: ${accuracyLevels[i]}`);
+          
+          // Use Promise.race to implement timeout (15 seconds for Realme devices)
+          location = await Promise.race<Location.LocationObject>([
+            Location.getCurrentPositionAsync({
+              accuracy: accuracyLevels[i],
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Location timeout')), 15000)
+            ),
+          ]);
+
+          if (location) {
+            console.log('Location obtained successfully:', location.coords);
+            break; // Success, exit loop
+          }
+        } catch (err) {
+          console.log(`Failed with accuracy ${accuracyLevels[i]}:`, err);
+          if (i === accuracyLevels.length - 1) {
+            // Last attempt failed
+            throw new Error('All location attempts failed');
+          }
+          // Continue to next accuracy level
+        }
+      }
+
+      if (!location) {
+        throw new Error('Unable to get location');
+      }
 
       // Reverse geocode to get address
       const [addressData] = await Location.reverseGeocodeAsync({
@@ -230,16 +287,25 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           handlePincodeChange(addressData.postalCode);
         }
 
-        Alert.alert('Success', 'Current location fetched successfully!');
+        showToast('Current location fetched successfully!', 'success');
       } else {
-        Alert.alert('Error', 'Unable to fetch address details for your location.');
+        showToast('Unable to fetch address details for your location.', 'error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Location error:', error);
-      Alert.alert(
-        'Error',
-        'Failed to fetch current location. Please ensure location services are enabled and try again.'
-      );
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to fetch current location.';
+      
+      if (error.message?.includes('timeout')) {
+        errorMessage = 'Location request timed out. Please ensure GPS is enabled and try again.';
+      } else if (error.message?.includes('denied')) {
+        errorMessage = 'Location permission denied. Please enable location access in settings.';
+      } else if (error.code === 'E_LOCATION_UNAVAILABLE') {
+        errorMessage = 'Location unavailable. Please check if GPS is enabled and you are not in airplane mode.';
+      }
+      
+      showToast(errorMessage, 'error');
     } finally {
       setLocationLoading(false);
     }
@@ -339,7 +405,7 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
     
     // Check if at least one payment method is provided
     if (!hasBankDetails && !hasUPI) {
-      Alert.alert('Payment Details Required', 'Please provide either Bank Account details (Account Number + IFSC Code) OR UPI ID.');
+      showToast('Please provide either Bank Account details OR UPI ID.', 'warning');
       setIsSubmitting(false);
       return;
     }
@@ -396,23 +462,23 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
         
         // Validate required fields are not empty
         if (!userId) {
-          Alert.alert('Error', 'User ID is missing. Please try logging in again.');
+          showToast('User ID is missing. Please try logging in again.', 'error');
           setIsSubmitting(false);
           return;
         }
         if (!mobileNumber) {
-          Alert.alert('Error', 'Mobile number is missing. Please try logging in again.');
+          showToast('Mobile number is missing. Please try logging in again.', 'error');
           setIsSubmitting(false);
           return;
         }
         if (!userName) {
-          Alert.alert('Error', 'Please enter your name.');
+          showToast('Please enter your name.', 'warning');
           setIsSubmitting(false);
           return;
         }
         // No need to check individual fields since we already validated either/or above
         if (!formattedAddress) {
-          Alert.alert('Error', 'Please enter your address.');
+          showToast('Please enter your address.', 'warning');
           setIsSubmitting(false);
           return;
         }
@@ -426,6 +492,7 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           mobile: mobileNumber,
           username: userName,
           address: formattedAddress,
+          device_token: fcmToken || undefined,
         });
         
         if (response.status === 'success' || response.status_code === 200) {
@@ -443,11 +510,11 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           await login(updatedUserData);
           // Auth state change will automatically navigate to Home screen
         } else {
-          Alert.alert('Registration Failed', response.message || 'Please try again.');
+          showToast(response.message || 'Registration failed. Please try again.', 'error');
         }
       } catch (error) {
         console.error('Registration error:', error);
-        Alert.alert('Error', 'Failed to complete registration. Please try again.');
+        showToast('Failed to complete registration. Please try again.', 'error');
       } finally {
         setIsSubmitting(false);
       }
@@ -687,11 +754,18 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
                       onPress={getCurrentLocation}
                       disabled={locationLoading}
                       activeOpacity={0.7}>
-                      <Icon 
-                        name={locationLoading ? "hourglass-empty" : "my-location"} 
-                        size={24} 
-                        color={locationLoading ? theme.colors.textSecondary : theme.colors.primary} 
-                      />
+                      {locationLoading ? (
+                        <ActivityIndicator 
+                          size="small" 
+                          color={theme.colors.primary} 
+                        />
+                      ) : (
+                        <Icon 
+                          name="my-location" 
+                          size={24} 
+                          color={theme.colors.primary} 
+                        />
+                      )}
                     </TouchableOpacity>
                   }
                 />
@@ -931,6 +1005,14 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           )}
         </View>
       </View>
+      
+      {/* Toast Notification */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
     </ImageBackground>
   );
 };
