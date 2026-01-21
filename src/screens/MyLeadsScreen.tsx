@@ -46,46 +46,70 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   const carouselItems: CarouselItem[] = [
     {
       id: '1',
-      gradient: ['rgba(212, 175, 55, 0.3)', 'rgba(212, 175, 55, 0.05)'],
+      gradient: ['rgba(212, 175, 55, 0.2)', 'rgba(212, 175, 55, 0.05)'],
       component: (
         <View style={styles.carouselCard}>
-          <View style={styles.carouselIconContainer}>
-            <Icon name="trending-up" size={32} color="#D4AF37" />
+          <View style={styles.carouselContent}>
+            <View style={styles.carouselIconWrapper}>
+              <LinearGradient
+                colors={['rgba(212, 175, 55, 0.25)', 'rgba(212, 175, 55, 0.08)']}
+                style={styles.carouselIconGradient}>
+                <Icon name="trending-up" size={30} color="#D4AF37" />
+              </LinearGradient>
+            </View>
+            <View style={styles.carouselTextContainer}>
+              <Text style={styles.carouselTitle}>Maximize Earnings</Text>
+              <Text style={styles.carouselDescription}>
+                Convert leads to commissions
+              </Text>
+            </View>
           </View>
-          <Text style={styles.carouselTitle}>Maximize Your Earnings</Text>
-          <Text style={styles.carouselDescription}>
-            Convert more leads and earn higher commissions
-          </Text>
         </View>
       ),
     },
     {
       id: '2',
-      gradient: ['rgba(76, 175, 80, 0.3)', 'rgba(76, 175, 80, 0.05)'],
+      gradient: ['rgba(76, 175, 80, 0.2)', 'rgba(76, 175, 80, 0.05)'],
       component: (
         <View style={styles.carouselCard}>
-          <View style={[styles.carouselIconContainer, {backgroundColor: 'rgba(76, 175, 80, 0.15)'}]}>
-            <Icon name="verified" size={32} color="#4CAF50" />
+          <View style={styles.carouselContent}>
+            <View style={styles.carouselIconWrapper}>
+              <LinearGradient
+                colors={['rgba(76, 175, 80, 0.25)', 'rgba(76, 175, 80, 0.08)']}
+                style={styles.carouselIconGradient}>
+                <Icon name="verified" size={30} color="#4CAF50" />
+              </LinearGradient>
+            </View>
+            <View style={styles.carouselTextContainer}>
+              <Text style={styles.carouselTitle}>Quality Leads</Text>
+              <Text style={styles.carouselDescription}>
+                Verified property enquiries
+              </Text>
+            </View>
           </View>
-          <Text style={styles.carouselTitle}>Quality Leads</Text>
-          <Text style={styles.carouselDescription}>
-            Get verified and genuine property enquiries
-          </Text>
         </View>
       ),
     },
     {
       id: '3',
-      gradient: ['rgba(33, 150, 243, 0.3)', 'rgba(33, 150, 243, 0.05)'],
+      gradient: ['rgba(33, 150, 243, 0.2)', 'rgba(33, 150, 243, 0.05)'],
       component: (
         <View style={styles.carouselCard}>
-          <View style={[styles.carouselIconContainer, {backgroundColor: 'rgba(33, 150, 243, 0.15)'}]}>
-            <Icon name="support-agent" size={32} color="#2196F3" />
+          <View style={styles.carouselContent}>
+            <View style={styles.carouselIconWrapper}>
+              <LinearGradient
+                colors={['rgba(33, 150, 243, 0.25)', 'rgba(33, 150, 243, 0.08)']}
+                style={styles.carouselIconGradient}>
+                <Icon name="support-agent" size={30} color="#2196F3" />
+              </LinearGradient>
+            </View>
+            <View style={styles.carouselTextContainer}>
+              <Text style={styles.carouselTitle}>24/7 Support</Text>
+              <Text style={styles.carouselDescription}>
+                Instant help anytime
+              </Text>
+            </View>
           </View>
-          <Text style={styles.carouselTitle}>24/7 Support</Text>
-          <Text style={styles.carouselDescription}>
-            Get instant help whenever you need assistance
-          </Text>
         </View>
       ),
     },
@@ -336,7 +360,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         items={carouselItems}
         autoPlay={true}
         autoPlayInterval={4000}
-        height={160}
+        height={120}
         showPagination={true}
       />
       
@@ -542,6 +566,7 @@ const styles = StyleSheet.create({
   leadsCountContainer: {
     marginTop: 20,
     marginBottom: 8,
+    paddingHorizontal: 24,
   },
   leadsCountBadge: {
     flexDirection: 'row',
@@ -563,31 +588,55 @@ const styles = StyleSheet.create({
   // Carousel card styles
   carouselCard: {
     flex: 1,
+    padding: 0,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(212, 175, 55, 0.25)',
+    backgroundColor: 'rgba(30, 30, 35, 0.85)',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  carouselIconContainer: {
+  carouselContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 24,
+  },
+  carouselIconWrapper: {
+    marginRight: 20,
+  },
+  carouselIconGradient: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  carouselTextContainer: {
+    flex: 1,
   },
   carouselTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
     color: '#ffffff',
     marginBottom: 6,
-    textAlign: 'center',
+    letterSpacing: 0.4,
   },
   carouselDescription: {
-    fontSize: 13,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 20,
+    fontWeight: '400',
   },
   // Card wrapper and gradient border
   leadCardWrapper: {
