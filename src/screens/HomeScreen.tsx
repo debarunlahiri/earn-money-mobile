@@ -27,7 +27,6 @@ const HomeTabContent = ({
   return (
     <View style={styles.container}>
       <MyLeadsScreen navigation={navigation} hideHeader={true} />
-      <FAB onPress={() => navigation.navigate('AddNewEnquiry')} icon="add" />
     </View>
   );
 };

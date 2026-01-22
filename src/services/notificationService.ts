@@ -107,8 +107,7 @@ export async function registerForPushNotificationsAsync(): Promise<
       );
     }
   } else {
-    Alert.alert(
-      'Error',
+    console.warn(
       'Push notifications only work on physical devices, not simulators/emulators.',
     );
   }

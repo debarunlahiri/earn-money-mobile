@@ -43,7 +43,7 @@ export const Carousel: React.FC<CarouselProps> = ({
   const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Card spacing and sizing
-  const HORIZONTAL_PADDING = 24;
+  const HORIZONTAL_PADDING = 8;
   const CARD_SPACING = 12;
   const cardWidth = SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_SPACING;
 

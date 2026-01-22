@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Animated,
   ActivityIndicator,
   Linking,
+  ScrollView,
 } from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {BlurView} from '@react-native-community/blur';
@@ -28,6 +29,9 @@ interface MyLeadsScreenProps {
   hideHeader?: boolean;
 }
 
+type FilterType = 'all' | 'new' | 'contacted' | 'converted';
+type SortType = 'newest' | 'oldest' | 'name';
+
 export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   navigation,
   hideHeader = false,
@@ -41,6 +45,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [sortType, setSortType] = useState<SortType>('newest');
 
   // Carousel items for promotional content
   const carouselItems: CarouselItem[] = [
@@ -49,21 +55,12 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       gradient: ['rgba(212, 175, 55, 0.2)', 'rgba(212, 175, 55, 0.05)'],
       component: (
         <View style={styles.carouselCard}>
-          <View style={styles.carouselContent}>
-            <View style={styles.carouselIconWrapper}>
-              <LinearGradient
-                colors={['rgba(212, 175, 55, 0.25)', 'rgba(212, 175, 55, 0.08)']}
-                style={styles.carouselIconGradient}>
-                <Icon name="trending-up" size={30} color="#D4AF37" />
-              </LinearGradient>
-            </View>
-            <View style={styles.carouselTextContainer}>
-              <Text style={styles.carouselTitle}>Maximize Earnings</Text>
-              <Text style={styles.carouselDescription}>
-                Convert leads to commissions
-              </Text>
-            </View>
-          </View>
+          <ImageBackground
+            source={require('../../assets/images/banner_one.png')}
+            style={styles.carouselImageBackground}
+            resizeMode="stretch">
+            <View style={styles.carouselOverlay} />
+          </ImageBackground>
         </View>
       ),
     },
@@ -72,21 +69,12 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       gradient: ['rgba(76, 175, 80, 0.2)', 'rgba(76, 175, 80, 0.05)'],
       component: (
         <View style={styles.carouselCard}>
-          <View style={styles.carouselContent}>
-            <View style={styles.carouselIconWrapper}>
-              <LinearGradient
-                colors={['rgba(76, 175, 80, 0.25)', 'rgba(76, 175, 80, 0.08)']}
-                style={styles.carouselIconGradient}>
-                <Icon name="verified" size={30} color="#4CAF50" />
-              </LinearGradient>
-            </View>
-            <View style={styles.carouselTextContainer}>
-              <Text style={styles.carouselTitle}>Quality Leads</Text>
-              <Text style={styles.carouselDescription}>
-                Verified property enquiries
-              </Text>
-            </View>
-          </View>
+          <ImageBackground
+            source={require('../../assets/images/banner_two.png')}
+            style={styles.carouselImageBackground}
+            resizeMode="stretch">
+            <View style={styles.carouselOverlay} />
+          </ImageBackground>
         </View>
       ),
     },
@@ -95,25 +83,53 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       gradient: ['rgba(33, 150, 243, 0.2)', 'rgba(33, 150, 243, 0.05)'],
       component: (
         <View style={styles.carouselCard}>
-          <View style={styles.carouselContent}>
-            <View style={styles.carouselIconWrapper}>
-              <LinearGradient
-                colors={['rgba(33, 150, 243, 0.25)', 'rgba(33, 150, 243, 0.08)']}
-                style={styles.carouselIconGradient}>
-                <Icon name="support-agent" size={30} color="#2196F3" />
-              </LinearGradient>
-            </View>
-            <View style={styles.carouselTextContainer}>
-              <Text style={styles.carouselTitle}>24/7 Support</Text>
-              <Text style={styles.carouselDescription}>
-                Instant help anytime
-              </Text>
-            </View>
-          </View>
+          <ImageBackground
+            source={require('../../assets/images/banner_three.png')}
+            style={styles.carouselImageBackground}
+            resizeMode="stretch">
+            <View style={styles.carouselOverlay} />
+          </ImageBackground>
         </View>
       ),
     },
   ];
+
+  // Computed stats
+  const stats = useMemo(() => {
+    const total = leads.length;
+    const newLeads = leads.filter(l => l.status === 'new').length;
+    const contacted = leads.filter(l => l.status === 'contacted').length;
+    const converted = leads.filter(l => l.status === 'converted').length;
+    const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
+    
+    return { total, newLeads, contacted, converted, conversionRate };
+  }, [leads]);
+
+  // Filtered and sorted leads
+  const filteredAndSortedLeads = useMemo(() => {
+    let filtered = [...leads];
+    
+    // Apply filter
+    if (filterType !== 'all') {
+      filtered = filtered.filter(lead => lead.status === filterType);
+    }
+    
+    // Apply sort
+    filtered.sort((a, b) => {
+      switch (sortType) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'name':
+          return a.name.localeCompare(b.name);
+        default:
+          return 0;
+      }
+    });
+    
+    return filtered;
+  }, [leads, filterType, sortType]);
 
   const fetchLeads = useCallback(async () => {
     if (!userData?.userid || !userData?.token) {
@@ -338,43 +354,129 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
     return (
       <View style={styles.emptyContainer}>
-        <Icon name="inbox" size={64} color="#666" />
-        <Text style={styles.emptyTitle}>No Leads Found</Text>
-        <Text style={styles.emptySubtitle}>
-          {error || 'Add a new enquiry to see your leads here'}
-        </Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddNewEnquiry')}>
-          <Icon name="add" size={20} color="#000" />
-          <Text style={styles.addButtonText}>Add New Enquiry</Text>
-        </TouchableOpacity>
+        {/* Animated background gradients */}
+        <View style={styles.emptyBackgroundGradient1} />
+        <View style={styles.emptyBackgroundGradient2} />
+        <View style={styles.emptyBackgroundGradient3} />
+        
+        {/* Large central icon with modern design */}
+        <View style={styles.emptyMainContent}>
+          <View style={styles.emptyIconContainer}>
+            {/* Main icon circle */}
+            <LinearGradient
+              colors={['#F5D78E', '#D4AF37']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.emptyIconCircle}>
+              <Icon name="inbox" size={70} color="#1a1a1a" />
+            </LinearGradient>
+          </View>
+
+          {/* Title section */}
+          <View style={styles.emptyTitleSection}>
+            <Text style={styles.emptyTitle}>No Leads Yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Start your earning journey by adding{'\n'}your first property enquiry
+            </Text>
+          </View>
+
+          {/* Stats preview cards - horizontal layout */}
+          <View style={styles.emptyStatsContainer}>
+            <LinearGradient
+              colors={['rgba(76, 175, 80, 0.15)', 'rgba(76, 175, 80, 0.05)']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 0}}
+              style={styles.emptyStatCard}>
+              <Icon name="verified-user" size={28} color="#4CAF50" />
+              <View style={styles.emptyStatTextContainer}>
+                <Text style={styles.emptyStatLabel}>Quality Leads</Text>
+                <Text style={styles.emptyStatDescription}>Verified enquiries</Text>
+              </View>
+            </LinearGradient>
+
+            <LinearGradient
+              colors={['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.05)']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 0}}
+              style={styles.emptyStatCard}>
+              <Icon name="account-balance-wallet" size={28} color="#D4AF37" />
+              <View style={styles.emptyStatTextContainer}>
+                <Text style={styles.emptyStatLabel}>Earn More</Text>
+                <Text style={styles.emptyStatDescription}>High commissions</Text>
+              </View>
+            </LinearGradient>
+
+            <LinearGradient
+              colors={['rgba(33, 150, 243, 0.15)', 'rgba(33, 150, 243, 0.05)']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 0}}
+              style={styles.emptyStatCard}>
+              <Icon name="headset-mic" size={28} color="#2196F3" />
+              <View style={styles.emptyStatTextContainer}>
+                <Text style={styles.emptyStatLabel}>24/7 Support</Text>
+                <Text style={styles.emptyStatDescription}>Always available</Text>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Bottom hint */}
+          <View style={styles.emptyHintContainer}>
+            <View style={styles.emptyHintDot} />
+            <Text style={styles.emptyHintText}>
+              Tap "Add Lead" button above to add property enquiries and start earning
+            </Text>
+          </View>
+        </View>
       </View>
     );
   };
 
-  const renderHeader = () => (
-    <View style={styles.listHeader}>
-      {/* Carousel Section */}
-      <Carousel
-        items={carouselItems}
-        autoPlay={true}
-        autoPlayInterval={4000}
-        height={120}
-        showPagination={true}
-      />
-      
-      {/* Total Leads Count */}
-      <View style={styles.leadsCountContainer}>
-        <View style={styles.leadsCountBadge}>
-          <Icon name="list-alt" size={18} color="#D4AF37" />
-          <Text style={styles.totalLeadsText}>
-            Total Leads: {leads.length}
-          </Text>
+  const renderHeader = () => {
+    return (
+      <View style={styles.listHeader}>
+        {/* Carousel Section - Always show */}
+        <View style={styles.carouselWrapper}>
+          <Carousel
+            items={carouselItems}
+            autoPlay={true}
+            autoPlayInterval={4000}
+            height={120}
+            showPagination={true}
+          />
         </View>
+
+        {/* Filter & Sort Controls - Only show when leads exist */}
+        {leads.length > 0 && (
+          <View style={styles.controlsContainer}>
+            {/* Active Filter Display */}
+            <View style={styles.activeFilterContainer}>
+              <Icon name="filter-list" size={16} color="#D4AF37" />
+              <Text style={styles.activeFilterText}>
+                {filterType === 'all' ? 'All Leads' : `${filterType.charAt(0).toUpperCase() + filterType.slice(1)} Leads`}
+              </Text>
+              <Text style={styles.activeFilterCount}>({filteredAndSortedLeads.length})</Text>
+            </View>
+
+            {/* Sort Button */}
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => {
+                // Cycle through sort options
+                const sortOptions: SortType[] = ['newest', 'oldest', 'name'];
+                const currentIndex = sortOptions.indexOf(sortType);
+                const nextIndex = (currentIndex + 1) % sortOptions.length;
+                setSortType(sortOptions[nextIndex]);
+              }}>
+              <Icon name="sort" size={16} color="#D4AF37" />
+              <Text style={styles.sortButtonText}>
+                {sortType === 'newest' ? 'Newest' : sortType === 'oldest' ? 'Oldest' : 'Name'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
-    </View>
-  );
+    );
+  };
 
   const content = (
     <>
@@ -410,7 +512,19 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
             <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
               Home
             </Text>
-            <View style={styles.placeholder} />
+            <TouchableOpacity
+              style={styles.addLeadButton}
+              onPress={() => navigation.navigate('AddNewEnquiry')}
+              activeOpacity={0.8}>
+              <LinearGradient
+                colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.addLeadGradient}>
+                <Icon name="add" size={18} color="#000" />
+                <Text style={styles.addLeadText}>Add Lead</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </>
       )}
@@ -433,9 +547,24 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           {/* Subtle overlay for better contrast */}
           <View style={styles.headerOverlay} />
           <FallingRupees count={10} />
-          <Text style={[styles.simpleHeaderTitle, {color: theme.colors.text}]}>
-            Home
-          </Text>
+          <View style={styles.simpleHeaderContent}>
+            <Text style={[styles.simpleHeaderTitle, {color: theme.colors.text}]}>
+              Home
+            </Text>
+            <TouchableOpacity
+              style={styles.addLeadButton}
+              onPress={() => navigation.navigate('AddNewEnquiry')}
+              activeOpacity={0.8}>
+              <LinearGradient
+                colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.addLeadGradient}>
+                <Icon name="add" size={18} color="#000" />
+                <Text style={styles.addLeadText}>Add Lead</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -446,12 +575,12 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         </View>
       ) : (
         <FlatList
-          data={leads}
+          data={filteredAndSortedLeads}
           renderItem={renderItem}
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={[
             styles.listContent,
-            leads.length === 0 && styles.emptyListContent,
+            filteredAndSortedLeads.length === 0 && styles.emptyListContent,
           ]}
           refreshControl={
             <RefreshControl
@@ -522,6 +651,27 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
+  addLeadButton: {
+    shadowColor: '#D4AF37',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  addLeadGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  addLeadText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: 0.3,
+  },
   simpleHeader: {
     paddingHorizontal: 24,
     paddingBottom: 16,
@@ -534,11 +684,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(212, 175, 55, 0.2)',
   },
+  simpleHeaderContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
   simpleHeaderTitle: {
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -1,
-    marginTop: 10,
   },
   loadingContainer: {
     flex: 1,
@@ -557,8 +712,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   emptyListContent: {
-    flex: 1,
-    justifyContent: 'center',
+    flexGrow: 1,
   },
   listHeader: {
     marginBottom: 20,
@@ -585,58 +739,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
   },
-  // Carousel card styles
+  // Carousel card styles - Enhanced
   carouselCard: {
     flex: 1,
     padding: 0,
     justifyContent: 'center',
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(212, 175, 55, 0.25)',
-    backgroundColor: 'rgba(30, 30, 35, 0.85)',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 8},
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+    backgroundColor: 'rgba(25, 25, 30, 0.95)',
+    shadowColor: '#D4AF37',
+    shadowOffset: {width: 0, height: 10},
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  carouselContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 24,
-  },
-  carouselIconWrapper: {
-    marginRight: 20,
-  },
-  carouselIconGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+  carouselImageBackground: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
   },
-  carouselTextContainer: {
-    flex: 1,
-  },
-  carouselTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 6,
-    letterSpacing: 0.4,
-  },
-  carouselDescription: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    lineHeight: 20,
-    fontWeight: '400',
+  carouselOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   // Card wrapper and gradient border
   leadCardWrapper: {
@@ -935,37 +1060,298 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 4,
   },
+  
+  // Stats Cards
+  statsContainer: {
+    marginBottom: 16,
+    paddingHorizontal: 24,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  statCard: {
+    flex: 1,
+  },
+  statCardGradient: {
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    minHeight: 120,
+    justifyContent: 'center',
+  },
+  statIconContainer: {
+    marginBottom: 10,
+  },
+  statIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  conversionBadge: {
+    marginTop: 6,
+    backgroundColor: 'rgba(156, 39, 176, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  conversionText: {
+    fontSize: 10,
+    color: '#9C27B0',
+    fontWeight: '700',
+  },
+
+  // Carousel wrapper
+  carouselWrapper: {
+    marginBottom: 16,
+  },
+
+  // Filter & Sort Controls
+  controlsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+    paddingHorizontal: 24,
+  },
+  activeFilterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+  },
+  activeFilterText: {
+    fontSize: 13,
+    color: '#D4AF37',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  activeFilterCount: {
+    fontSize: 12,
+    color: 'rgba(212, 175, 55, 0.7)',
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
+  },
+  sortButtonText: {
+    fontSize: 13,
+    color: '#D4AF37',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+
+  // Modern Empty State Design
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+    minHeight: 600,
+    position: 'relative',
+  },
+  
+  // Background gradients
+  emptyBackgroundGradient1: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(212, 175, 55, 0.06)',
+    opacity: 0.6,
+  },
+  emptyBackgroundGradient2: {
+    position: 'absolute',
+    bottom: -80,
+    left: -80,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(76, 175, 80, 0.06)',
+    opacity: 0.5,
+  },
+  emptyBackgroundGradient3: {
+    position: 'absolute',
+    top: '50%',
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(33, 150, 243, 0.05)',
+    opacity: 0.4,
+  },
+
+  // Main content wrapper
+  emptyMainContent: {
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
+  },
+
+  // Icon container with glow rings
+  emptyIconContainer: {
+    position: 'relative',
+    marginBottom: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyGlowRing1: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 2,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
+    opacity: 0.6,
+  },
+  emptyGlowRing2: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.1)',
+    opacity: 0.4,
+  },
+  emptyIconCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#D4AF37',
+    shadowOffset: {width: 0, height: 12},
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+
+  // Title section
+  emptyTitleSection: {
+    alignItems: 'center',
+    marginBottom: 36,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#fff',
-    marginTop: 16,
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#ffffff',
+    marginBottom: 12,
+    letterSpacing: -1,
+    textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 8,
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
-    paddingHorizontal: 40,
+    lineHeight: 24,
+    fontWeight: '400',
   },
-  addButton: {
+
+  // Stats container - horizontal cards
+  emptyStatsContainer: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 32,
+  },
+  emptyStatCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#D4AF37',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginTop: 24,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
   },
-  addButtonText: {
-    fontSize: 14,
+  emptyStatTextContainer: {
+    marginLeft: 14,
+    flex: 1,
+  },
+  emptyStatLabel: {
+    fontSize: 15,
     fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 2,
+  },
+  emptyStatDescription: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: '500',
+  },
+
+  // CTA Button
+  emptyCtaButton: {
+    width: '100%',
+    marginBottom: 20,
+    shadowColor: '#D4AF37',
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  emptyCtaGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 28,
+    gap: 10,
+  },
+  emptyCtaText: {
+    fontSize: 16,
+    fontWeight: '800',
     color: '#000',
-    marginLeft: 8,
+    letterSpacing: 0.3,
+  },
+
+  // Bottom hint
+  emptyHintContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyHintDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(212, 175, 55, 0.6)',
+  },
+  emptyHintText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: '500',
   },
 });
