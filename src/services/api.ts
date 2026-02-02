@@ -590,3 +590,66 @@ export const saveFCMToken = async (
     throw error;
   }
 };
+
+export interface SliderItem {
+  img: string;
+  title: string;
+  sub_title: string;
+}
+
+export interface LeadsSummaryItem {
+  new?: number;
+  processing?: number;
+  cancelled?: number;
+  converted?: number;
+}
+
+export interface ProfileWithLeadsData {
+  userid: number;
+  username: string;
+  mobile: string;
+  address: string;
+  ac_no: string;
+  ifsc_code: string;
+}
+
+export interface ProfileWithLeadsResponse {
+  status: string;
+  status_code: number;
+  message?: string;
+  userdata?: ProfileWithLeadsData;
+  slider?: SliderItem[];
+  view_leads?: Lead[];
+  leads_summary?: LeadsSummaryItem[];
+}
+
+/**
+ * Fetches comprehensive profile data including slider, leads, and leads summary
+ */
+export const getProfileWithLeads = async (
+  userid: string | number,
+  token: string | number,
+): Promise<ProfileWithLeadsResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'profile');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};

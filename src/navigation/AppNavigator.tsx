@@ -20,6 +20,7 @@ import {WalletScreen} from '../screens/WalletScreen';
 import {WithdrawMoneyScreen} from '../screens/WithdrawMoneyScreen';
 import {TransactionHistoryScreen} from '../screens/TransactionHistoryScreen';
 import {MyLeadsScreen} from '../screens/MyLeadsScreen';
+import {AllLeadsScreen} from '../screens/AllLeadsScreen';
 import {LeadDetailsScreen} from '../screens/LeadDetailsScreen';
 import {SupportChatScreen} from '../screens/SupportChatScreen';
 import {AboutScreen} from '../screens/AboutScreen';
@@ -113,6 +114,7 @@ export const AppNavigator = () => {
             <Stack.Screen name="WithdrawMoney" component={WithdrawMoneyScreen} />
             <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
             <Stack.Screen name="MyLeads" component={MyLeadsScreen} />
+            <Stack.Screen name="AllLeads" component={AllLeadsScreen} />
             <Stack.Screen name="LeadDetails" component={LeadDetailsScreen} />
             <Stack.Screen name="SupportChat" component={SupportChatScreen} />
             <Stack.Screen name="About" component={AboutScreen} />

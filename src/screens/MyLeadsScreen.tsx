@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Linking,
   ScrollView,
+  Image,
 } from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {BlurView} from '@react-native-community/blur';
@@ -21,7 +22,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import {FallingRupees} from '../components/FallingRupee';
 import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 import {useAuth} from '../context/AuthContext';
-import {viewLeads, Lead} from '../services/api';
+import {viewLeads, Lead, getProfileWithLeads, SliderItem, LeadsSummaryItem} from '../services/api';
 import {Carousel, CarouselItem} from '../components/Carousel';
 
 interface MyLeadsScreenProps {
@@ -47,63 +48,80 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('newest');
+  const [sliderItems, setSliderItems] = useState<SliderItem[]>([]);
+  const [leadsSummary, setLeadsSummary] = useState<LeadsSummaryItem[]>([]);
+  const [profileName, setProfileName] = useState<string>('');
 
-  // Carousel items for promotional content
-  const carouselItems: CarouselItem[] = [
-    {
-      id: '1',
-      gradient: ['rgba(212, 175, 55, 0.2)', 'rgba(212, 175, 55, 0.05)'],
-      component: (
-        <View style={styles.carouselCard}>
-          <ImageBackground
-            source={require('../../assets/images/banner_one.png')}
-            style={styles.carouselImageBackground}
-            resizeMode="stretch">
-            <View style={styles.carouselOverlay} />
-          </ImageBackground>
-        </View>
-      ),
-    },
-    {
-      id: '2',
-      gradient: ['rgba(76, 175, 80, 0.2)', 'rgba(76, 175, 80, 0.05)'],
-      component: (
-        <View style={styles.carouselCard}>
-          <ImageBackground
-            source={require('../../assets/images/banner_two.png')}
-            style={styles.carouselImageBackground}
-            resizeMode="stretch">
-            <View style={styles.carouselOverlay} />
-          </ImageBackground>
-        </View>
-      ),
-    },
-    {
-      id: '3',
-      gradient: ['rgba(33, 150, 243, 0.2)', 'rgba(33, 150, 243, 0.05)'],
-      component: (
-        <View style={styles.carouselCard}>
-          <ImageBackground
-            source={require('../../assets/images/banner_three.png')}
-            style={styles.carouselImageBackground}
-            resizeMode="stretch">
-            <View style={styles.carouselOverlay} />
-          </ImageBackground>
-        </View>
-      ),
-    },
-  ];
+  // Build carousel items from API slider data
+  const carouselItems: CarouselItem[] = useMemo(() => {
+    if (sliderItems.length === 0) {
+      // Fallback to default banners if API hasn't loaded yet
+      return [
+        {
+          id: '1',
+          gradient: ['rgba(212, 175, 55, 0.2)', 'rgba(212, 175, 55, 0.05)'],
+          component: (
+            <View style={styles.carouselCard}>
+              <ImageBackground
+                source={require('../../assets/images/banner_one.png')}
+                style={styles.carouselImageBackground}
+                resizeMode="stretch">
+                <View style={styles.carouselOverlay} />
+              </ImageBackground>
+            </View>
+          ),
+        },
+      ];
+    }
 
-  // Computed stats
+    return sliderItems.map((item, index) => ({
+      id: index.toString(),
+      gradient: [
+        index === 0 ? 'rgba(212, 175, 55, 0.2)' : index === 1 ? 'rgba(76, 175, 80, 0.2)' : 'rgba(33, 150, 243, 0.2)',
+        index === 0 ? 'rgba(212, 175, 55, 0.05)' : index === 1 ? 'rgba(76, 175, 80, 0.05)' : 'rgba(33, 150, 243, 0.05)',
+      ],
+      component: (
+        <View style={styles.carouselCard}>
+          <Image
+            source={{uri: item.img}}
+            style={styles.carouselImageBackground}
+            resizeMode="cover"
+          />
+          <View style={styles.carouselOverlay}>
+            <View style={styles.carouselTextContainer}>
+              <Text style={styles.carouselTitle}>{item.title}</Text>
+              <Text style={styles.carouselSubtitle}>{item.sub_title}</Text>
+            </View>
+          </View>
+        </View>
+      ),
+    }));
+  }, [sliderItems]);
+
+  // Computed stats from API leads_summary or fallback to computed from leads
   const stats = useMemo(() => {
-    const total = leads.length;
-    const newLeads = leads.filter(l => l.status === 'new').length;
-    const contacted = leads.filter(l => l.status === 'contacted').length;
-    const converted = leads.filter(l => l.status === 'converted').length;
-    const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
-    
-    return { total, newLeads, contacted, converted, conversionRate };
-  }, [leads]);
+    if (leadsSummary.length > 0) {
+      // Use API data
+      const newLeads = leadsSummary.find(item => item.new !== undefined)?.new || 0;
+      const processing = leadsSummary.find(item => item.processing !== undefined)?.processing || 0;
+      const cancelled = leadsSummary.find(item => item.cancelled !== undefined)?.cancelled || 0;
+      const converted = leadsSummary.find(item => item.converted !== undefined)?.converted || 0;
+      const total = newLeads + processing + cancelled + converted;
+      const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
+      
+      return { total, newLeads, contacted: processing, converted, conversionRate, cancelled };
+    } else {
+      // Fallback to computed from leads array
+      const total = leads.length;
+      const newLeads = leads.filter(l => l.status === 'new').length;
+      const contacted = leads.filter(l => l.status === 'contacted' || l.status === 'processing').length;
+      const converted = leads.filter(l => l.status === 'converted').length;
+      const cancelled = leads.filter(l => l.status === 'cancelled').length;
+      const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
+      
+      return { total, newLeads, contacted, converted, conversionRate, cancelled };
+    }
+  }, [leads, leadsSummary]);
 
   // Filtered and sorted leads
   const filteredAndSortedLeads = useMemo(() => {
@@ -140,17 +158,38 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
     try {
       setError(null);
-      const response = await viewLeads(userData.userid, userData.token);
+      // Use the new profile API that returns everything
+      const response = await getProfileWithLeads(userData.userid, userData.token);
 
-      if (response.status === 'success' && response.data) {
-        setLeads(response.data);
+      if (response.status === 'success') {
+        // Set leads from view_leads
+        if (response.view_leads) {
+          setLeads(response.view_leads);
+        } else {
+          setLeads([]);
+        }
+        
+        // Set slider items
+        if (response.slider) {
+          setSliderItems(response.slider);
+        }
+        
+        // Set leads summary
+        if (response.leads_summary) {
+          setLeadsSummary(response.leads_summary);
+        }
+        
+        // Set profile name
+        if (response.userdata?.username) {
+          setProfileName(response.userdata.username);
+        }
       } else {
-        setError(response.message || 'Failed to fetch leads');
+        setError(response.message || 'Failed to fetch data');
         setLeads([]);
       }
     } catch (err) {
       console.error('Error fetching leads:', err);
-      setError('An error occurred while fetching leads');
+      setError('An error occurred while fetching data');
       setLeads([]);
     } finally {
       setLoading(false);
@@ -197,155 +236,120 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         .slice(0, 2);
     };
 
+    const getStatusColor = (status: string) => {
+      switch (status) {
+        case 'new':
+          return '#4CAF50';
+        case 'contacted':
+        case 'processing':
+          return '#FF9800';
+        case 'converted':
+          return '#2196F3';
+        case 'cancelled':
+          return '#F44336';
+        default:
+          return '#888';
+      }
+    };
+
+    const getStatusLabel = (status: string) => {
+      switch (status) {
+        case 'contacted':
+        case 'processing':
+          return 'Contacted';
+        case 'new':
+          return 'New Lead';
+        case 'converted':
+          return 'Converted';
+        case 'cancelled':
+          return 'Cancelled';
+        default:
+          return status;
+      }
+    };
+
+    const formatTime = (dateString: string) => {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      
+      return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    };
+
     return (
-      <View style={styles.leadCardWrapper}>
-        {/* Card with gradient border effect */}
-        <LinearGradient
-          colors={['rgba(212, 175, 55, 0.4)', 'rgba(212, 175, 55, 0.1)', 'rgba(212, 175, 55, 0.05)']}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
-          style={styles.cardGradientBorder}>
-          <TouchableOpacity
-            style={styles.leadCard}
-            activeOpacity={0.95}
-            onPress={() => {
-              navigation.navigate('LeadDetails', {lead: item});
-            }}>
-            
-            {/* Header with gradient background */}
-            <LinearGradient
-              colors={['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.05)', 'transparent']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={styles.cardHeaderGradient}>
-              
-              {/* Decorative elements */}
-              <View style={styles.decorativeCircle1} />
-              <View style={styles.decorativeCircle2} />
-              
-              <View style={styles.cardHeader}>
-                <View style={styles.nameContainer}>
-                  {/* Avatar with gradient */}
-                  <LinearGradient
-                    colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
-                    start={{x: 0, y: 0}}
-                    end={{x: 1, y: 1}}
-                    style={styles.avatarGradient}>
-                    <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
-                  </LinearGradient>
-                  
-                  <View style={styles.nameTextContainer}>
-                    <Text style={styles.leadName} numberOfLines={1}>{item.name}</Text>
-                    <View style={styles.leadMetaRow}>
-                      <View style={[
-                        styles.statusBadge,
-                        item.status === 'converted' && styles.statusBadgeConverted,
-                        item.status === 'new' && styles.statusBadgeNew,
-                      ]}>
-                        <View style={[
-                          styles.statusDot,
-                          item.status === 'converted' && styles.statusDotConverted,
-                          item.status === 'new' && styles.statusDotNew,
-                        ]} />
-                        <Text style={[
-                          styles.statusText,
-                          item.status === 'converted' && styles.statusTextConverted,
-                          item.status === 'new' && styles.statusTextNew,
-                        ]}>{item.status.toUpperCase()}</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-                
-                {/* Rank badge */}
-                <View style={styles.rankBadgeContainer}>
-                  <LinearGradient
-                    colors={['rgba(212, 175, 55, 0.3)', 'rgba(212, 175, 55, 0.1)']}
-                    style={styles.rankBadge}>
-                    <Text style={styles.rankText}>#{leads.length - index}</Text>
-                  </LinearGradient>
-                </View>
-              </View>
-            </LinearGradient>
-
-            {/* Info Section */}
-            <View style={styles.cardBody}>
-              {/* Contact Row */}
-              <View style={styles.infoRow}>
-                <View style={[styles.infoIconContainer, styles.phoneIconBg]}>
-                  <Icon name="phone" size={16} color="#4CAF50" />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Contact Number</Text>
-                  <Text style={styles.infoValue}>{item.mobile}</Text>
-                </View>
-                {/* Quick action buttons */}
-                <View style={styles.quickActions}>
-                  <TouchableOpacity 
-                    style={styles.actionBtn}
-                    onPress={() => handleCall(item.mobile)}>
-                    <Icon name="phone" size={16} color="#fff" />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, styles.whatsappBtn]}
-                    onPress={() => handleWhatsApp(item.mobile)}>
-                    <Icon name="chat" size={16} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Divider with glow */}
-              <View style={styles.dividerContainer}>
-                <View style={styles.dividerLine} />
-                <View style={styles.dividerGlow} />
-              </View>
-
-              {/* Location Row */}
-              <View style={styles.infoRow}>
-                <View style={[styles.infoIconContainer, styles.locationIconBg]}>
-                  <Icon name="location-on" size={16} color="#2196F3" />
-                </View>
-                <View style={styles.infoContent}>
-                  <Text style={styles.infoLabel}>Location</Text>
-                  <Text style={styles.infoValue} numberOfLines={1}>{item.address}</Text>
-                </View>
-              </View>
-
-              {/* Requirement Row */}
-              <View style={styles.requirementContainer}>
-                <View style={styles.requirementHeader}>
-                  <View style={[styles.infoIconContainer, styles.requirementIconBg]}>
-                    <Icon name="description" size={16} color="#FF9800" />
-                  </View>
-                  <Text style={styles.requirementLabel}>Property Requirement</Text>
-                </View>
-                <View style={styles.requirementBox}>
-                  <Text style={styles.requirementText} numberOfLines={2}>
-                    {item.requirement}
-                  </Text>
-                </View>
-              </View>
+      <TouchableOpacity
+        style={styles.leadCard}
+        onPress={() => navigation.navigate('LeadDetails', {lead: item})}
+        activeOpacity={0.7}>
+        {/* Blur Background */}
+        <BlurView
+          style={StyleSheet.absoluteFillObject}
+          blurType="dark"
+          blurAmount={10}
+          reducedTransparencyFallbackColor="rgba(40, 40, 40, 0.95)"
+        />
+        
+        {/* Top Section */}
+        <View style={styles.leadCardTop}>
+          {/* Left: Avatar and Name */}
+          <View style={styles.leadLeftSection}>
+            <View style={styles.leadAvatar}>
+              <LinearGradient
+                colors={['#D4AF37', '#AA8C2C']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.avatarGradient}>
+                <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
+              </LinearGradient>
             </View>
+            <View style={styles.leadNameContainer}>
+              <Text style={styles.leadName} numberOfLines={1}>
+                {item.name}
+              </Text>
+            </View>
+          </View>
 
-            {/* Footer with gradient */}
-            <LinearGradient
-              colors={['transparent', 'rgba(212, 175, 55, 0.05)']}
-              style={styles.cardFooter}>
-              <View style={styles.timestampContainer}>
-                <Icon name="access-time" size={14} color="rgba(212, 175, 55, 0.8)" />
-                <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
-              </View>
-              <TouchableOpacity 
-                style={styles.viewDetailsBtn}
-                onPress={() => navigation.navigate('LeadDetails', {lead: item})}>
-                <Text style={styles.viewDetailsText}>View Details</Text>
-                <Icon name="arrow-forward" size={16} color="#D4AF37" />
-              </TouchableOpacity>
-            </LinearGradient>
-            
-          </TouchableOpacity>
-        </LinearGradient>
-      </View>
+          {/* Right: Status and Date */}
+          <View style={styles.leadRightSection}>
+            <View style={styles.leadStatusRow}>
+              <View
+                style={[
+                  styles.statusDot,
+                  {backgroundColor: getStatusColor(item.status)},
+                ]}
+              />
+              <Text style={[styles.leadStatus, {color: getStatusColor(item.status)}]}>
+                {getStatusLabel(item.status)}
+              </Text>
+            </View>
+            <View style={styles.leadTimestamp}>
+              <Icon name="access-time" size={12} color="rgba(255, 255, 255, 0.4)" />
+              <Text style={styles.timestampText}>{formatTime(item.created_at)}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Bottom Section: Requirement */}
+        {item.requirement && (
+          <View style={styles.leadRequirementSection}>
+            <View style={styles.requirementDivider} />
+            <View style={styles.requirementContent}>
+              <Icon name="description" size={14} color="rgba(212, 175, 55, 0.7)" />
+              <Text style={styles.requirementText} numberOfLines={2}>
+                {item.requirement}
+              </Text>
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
     );
   };
 
@@ -380,45 +384,6 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
             </Text>
           </View>
 
-          {/* Stats preview cards - horizontal layout */}
-          <View style={styles.emptyStatsContainer}>
-            <LinearGradient
-              colors={['rgba(76, 175, 80, 0.15)', 'rgba(76, 175, 80, 0.05)']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
-              style={styles.emptyStatCard}>
-              <Icon name="verified-user" size={28} color="#4CAF50" />
-              <View style={styles.emptyStatTextContainer}>
-                <Text style={styles.emptyStatLabel}>Quality Leads</Text>
-                <Text style={styles.emptyStatDescription}>Verified enquiries</Text>
-              </View>
-            </LinearGradient>
-
-            <LinearGradient
-              colors={['rgba(212, 175, 55, 0.15)', 'rgba(212, 175, 55, 0.05)']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
-              style={styles.emptyStatCard}>
-              <Icon name="account-balance-wallet" size={28} color="#D4AF37" />
-              <View style={styles.emptyStatTextContainer}>
-                <Text style={styles.emptyStatLabel}>Earn More</Text>
-                <Text style={styles.emptyStatDescription}>High commissions</Text>
-              </View>
-            </LinearGradient>
-
-            <LinearGradient
-              colors={['rgba(33, 150, 243, 0.15)', 'rgba(33, 150, 243, 0.05)']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
-              style={styles.emptyStatCard}>
-              <Icon name="headset-mic" size={28} color="#2196F3" />
-              <View style={styles.emptyStatTextContainer}>
-                <Text style={styles.emptyStatLabel}>24/7 Support</Text>
-                <Text style={styles.emptyStatDescription}>Always available</Text>
-              </View>
-            </LinearGradient>
-          </View>
-
           {/* Bottom hint */}
           <View style={styles.emptyHintContainer}>
             <View style={styles.emptyHintDot} />
@@ -434,43 +399,101 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   const renderHeader = () => {
     return (
       <View style={styles.listHeader}>
-        {/* Carousel Section - Always show */}
-        <View style={styles.carouselWrapper}>
-          <Carousel
-            items={carouselItems}
-            autoPlay={true}
-            autoPlayInterval={4000}
-            height={120}
-            showPagination={true}
-          />
+        {/* Header Background Extension - matches header solid background */}
+        <View style={styles.headerBackgroundExtension}>
+          {/* Welcome Section */}
+          <View style={[styles.welcomeSection, {paddingTop: insets.top + 10}]}>
+            <Text style={styles.welcomeText}>Welcome back</Text>
+            <Text style={styles.welcomeName}>Hi, {profileName || userData?.username || 'User'} 👋</Text>
+          </View>
+
+          {/* Carousel Section - Always show */}
+          <View style={styles.carouselWrapper}>
+            <Carousel
+              items={carouselItems}
+              autoPlay={true}
+              autoPlayInterval={4000}
+              height={120}
+              showPagination={true}
+            />
+          </View>
         </View>
 
-        {/* Filter & Sort Controls - Only show when leads exist */}
-        {leads.length > 0 && (
-          <View style={styles.controlsContainer}>
-            {/* Active Filter Display */}
-            <View style={styles.activeFilterContainer}>
-              <Icon name="filter-list" size={16} color="#D4AF37" />
-              <Text style={styles.activeFilterText}>
-                {filterType === 'all' ? 'All Leads' : `${filterType.charAt(0).toUpperCase() + filterType.slice(1)} Leads`}
-              </Text>
-              <Text style={styles.activeFilterCount}>({filteredAndSortedLeads.length})</Text>
-            </View>
+        {/* Leads Summary Section - Show when we have data */}
+        {leadsSummary.length > 0 && (
+          <View style={styles.leadsSummaryContainer}>
+            <Text style={styles.leadsSummaryTitle}>Leads Overview</Text>
+            
+            <View style={styles.summaryCardsRow}>
+              {/* New Leads Card */}
+              <View style={[styles.summaryCard, styles.summaryCardGreen]}>
+                <BlurView
+                  style={StyleSheet.absoluteFillObject}
+                  blurType="dark"
+                  blurAmount={10}
+                  reducedTransparencyFallbackColor="rgba(76, 175, 80, 0.2)"
+                />
+                <View style={styles.summaryCardContent}>
+                  <Text style={styles.summaryValue}>{stats.newLeads}</Text>
+                  <Text style={styles.summaryLabel}>New Leads</Text>
+                </View>
+              </View>
 
-            {/* Sort Button */}
+              {/* Processing Card */}
+              <View style={[styles.summaryCard, styles.summaryCardOrange]}>
+                <BlurView
+                  style={StyleSheet.absoluteFillObject}
+                  blurType="dark"
+                  blurAmount={10}
+                  reducedTransparencyFallbackColor="rgba(255, 152, 0, 0.2)"
+                />
+                <View style={styles.summaryCardContent}>
+                  <Text style={styles.summaryValue}>{stats.contacted}</Text>
+                  <Text style={styles.summaryLabel}>Contacted</Text>
+                </View>
+              </View>
+
+              {/* Cancelled Card */}
+              <View style={[styles.summaryCard, styles.summaryCardPurple]}>
+                <BlurView
+                  style={StyleSheet.absoluteFillObject}
+                  blurType="dark"
+                  blurAmount={10}
+                  reducedTransparencyFallbackColor="rgba(156, 39, 176, 0.2)"
+                />
+                <View style={styles.summaryCardContent}>
+                  <Text style={styles.summaryValue}>{stats.cancelled || 0}</Text>
+                  <Text style={styles.summaryLabel}>Cancelled</Text>
+                </View>
+              </View>
+
+              {/* Converted Card */}
+              <View style={[styles.summaryCard, styles.summaryCardBlue]}>
+                <BlurView
+                  style={StyleSheet.absoluteFillObject}
+                  blurType="dark"
+                  blurAmount={10}
+                  reducedTransparencyFallbackColor="rgba(33, 150, 243, 0.2)"
+                />
+                <View style={styles.summaryCardContent}>
+                  <Text style={styles.summaryValue}>{stats.converted}</Text>
+                  <Text style={styles.summaryLabel}>Converted</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Recent Leads Heading - Only show when leads exist */}
+        {leads.length > 0 && (
+          <View style={styles.recentLeadsContainer}>
+            <Text style={styles.recentLeadsTitle}>Recent Leads</Text>
             <TouchableOpacity
-              style={styles.sortButton}
-              onPress={() => {
-                // Cycle through sort options
-                const sortOptions: SortType[] = ['newest', 'oldest', 'name'];
-                const currentIndex = sortOptions.indexOf(sortType);
-                const nextIndex = (currentIndex + 1) % sortOptions.length;
-                setSortType(sortOptions[nextIndex]);
-              }}>
-              <Icon name="sort" size={16} color="#D4AF37" />
-              <Text style={styles.sortButtonText}>
-                {sortType === 'newest' ? 'Newest' : sortType === 'oldest' ? 'Oldest' : 'Name'}
-              </Text>
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('AllLeads')}
+              activeOpacity={0.7}>
+              <Text style={styles.viewAllText}>View All</Text>
+              <Icon name="arrow-forward" size={16} color="#D4AF37" />
             </TouchableOpacity>
           </View>
         )}
@@ -480,93 +503,11 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
   const content = (
     <>
-      {!hideHeader && (
-        <>
-          <StatusBar
-            barStyle="light-content"
-            translucent
-            backgroundColor="transparent"
-          />
-          <View
-            style={[
-              styles.header,
-              {
-                paddingTop: insets.top + 10,
-              },
-            ]}>
-            {/* Blur background */}
-            <BlurView
-              style={StyleSheet.absoluteFillObject}
-              blurType="dark"
-              blurAmount={20}
-              reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
-            />
-            {/* Subtle overlay for better contrast */}
-            <View style={styles.headerOverlay} />
-            <FallingRupees count={10} />
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}>
-              <Icon name="arrow-back" size={24} color={theme.colors.text} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-              Home
-            </Text>
-            <TouchableOpacity
-              style={styles.addLeadButton}
-              onPress={() => navigation.navigate('AddNewEnquiry')}
-              activeOpacity={0.8}>
-              <LinearGradient
-                colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.addLeadGradient}>
-                <Icon name="add" size={18} color="#000" />
-                <Text style={styles.addLeadText}>Add Lead</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-
-      {hideHeader && (
-        <View
-          style={[
-            styles.simpleHeader,
-            {
-              paddingTop: insets.top + 10,
-            },
-          ]}>
-          {/* Blur background */}
-          <BlurView
-            style={StyleSheet.absoluteFillObject}
-            blurType="dark"
-            blurAmount={20}
-            reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
-          />
-          {/* Subtle overlay for better contrast */}
-          <View style={styles.headerOverlay} />
-          <FallingRupees count={10} />
-          <View style={styles.simpleHeaderContent}>
-            <Text style={[styles.simpleHeaderTitle, {color: theme.colors.text}]}>
-              Home
-            </Text>
-            <TouchableOpacity
-              style={styles.addLeadButton}
-              onPress={() => navigation.navigate('AddNewEnquiry')}
-              activeOpacity={0.8}>
-              <LinearGradient
-                colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.addLeadGradient}>
-                <Icon name="add" size={18} color="#000" />
-                <Text style={styles.addLeadText}>Add Lead</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      <StatusBar
+        barStyle="light-content"
+        translucent
+        backgroundColor="rgba(0, 0, 0, 0)"
+      />
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -596,6 +537,26 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           ListEmptyComponent={renderEmpty}
         />
       )}
+
+      {/* Floating Add Lead Button */}
+      <TouchableOpacity
+        style={[
+          styles.floatingAddButton,
+          {
+            bottom: insets.bottom + 80,
+          },
+        ]}
+        onPress={() => navigation.navigate('AddNewEnquiry')}
+        activeOpacity={0.8}>
+        <LinearGradient
+          colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
+          style={styles.floatingButtonGradient}>
+          <Icon name="add" size={20} color="#000" />
+          <Text style={styles.floatingButtonText}>Add Lead</Text>
+        </LinearGradient>
+      </TouchableOpacity>
     </>
   );
 
@@ -608,7 +569,6 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       source={require('../../assets/images/bg_image_second.png')}
       style={styles.container}
       resizeMode="cover">
-      <View style={styles.overlay} />
       {content}
     </ImageBackground>
   );
@@ -681,8 +641,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 100,
     overflow: 'hidden',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(212, 175, 55, 0.2)',
   },
   simpleHeaderContent: {
     flexDirection: 'row',
@@ -707,15 +665,15 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   listContent: {
-    paddingHorizontal: 24,
-    paddingTop: 140,
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 160,
   },
   emptyListContent: {
     flexGrow: 1,
   },
   listHeader: {
-    marginBottom: 20,
+    marginBottom: 4,
   },
   leadsCountContainer: {
     marginTop: 20,
@@ -739,7 +697,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
   },
-  // Carousel card styles - Enhanced
   carouselCard: {
     flex: 1,
     padding: 0,
@@ -761,7 +718,228 @@ const styles = StyleSheet.create({
   },
   carouselOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carouselTextContainer: {
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  carouselTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: {width: 0, height: 2},
+    textShadowRadius: 4,
+  },
+  carouselSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 3,
+  },
+  // Header Background Extension - transparent to show background
+  headerBackgroundExtension: {
+    backgroundColor: 'transparent',
+    marginHorizontal: -24,
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: 'hidden',
+  },
+  // Welcome Section
+  welcomeSection: {
+    marginBottom: 16,
+  },
+  welcomeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.6)',
+    marginBottom: 4,
+  },
+  welcomeName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.3,
+  },
+
+  // Leads Summary Section
+  leadsSummaryContainer: {
+    marginTop: 0,
+  },
+  leadsSummaryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+  summaryCardsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  summaryCard: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  summaryCardGreen: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  summaryCardOrange: {
+    backgroundColor: 'rgba(255, 152, 0, 0.15)',
+    borderColor: 'rgba(255, 152, 0, 0.3)',
+  },
+  summaryCardPurple: {
+    backgroundColor: 'rgba(156, 39, 176, 0.15)',
+    borderColor: 'rgba(156, 39, 176, 0.3)',
+  },
+  summaryCardBlue: {
+    backgroundColor: 'rgba(33, 150, 243, 0.15)',
+    borderColor: 'rgba(33, 150, 243, 0.3)',
+  },
+  summaryCardContent: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  summaryValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontWeight: '500',
+  },
+  // Lead Card Styles
+  leadCard: {
+    marginBottom: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.2)',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  leadCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  leadLeftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  leadRightSection: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  leadNameContainer: {
+    flex: 1,
+  },
+  leadAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginRight: 12,
+  },
+  avatarGradient: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  leadName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+    marginBottom: 6,
+  },
+  leadStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+  leadStatus: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  leadTimestamp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  timestampText: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.4)',
+    fontWeight: '500',
+  },
+  leadRequirementSection: {
+    paddingHorizontal: 18,
+    paddingTop: 2,
+    paddingBottom: 14,
+  },
+  requirementDivider: {
+    height: 1,
+    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+    marginBottom: 8,
+  },
+  requirementContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: 'rgba(212, 175, 55, 0.6)',
+    gap: 10,
+  },
+  requirementText: {
+    flex: 1,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 19,
+    fontWeight: '500',
   },
   // Card wrapper and gradient border
   leadCardWrapper: {
@@ -770,11 +948,6 @@ const styles = StyleSheet.create({
   cardGradientBorder: {
     borderRadius: 24,
     padding: 1.5,
-  },
-  leadCard: {
-    backgroundColor: 'rgba(15, 15, 20, 0.98)',
-    borderRadius: 22,
-    overflow: 'hidden',
   },
   
   // Card header with gradient
@@ -813,35 +986,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  
-  // Avatar styles
-  avatarGradient: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  avatarText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1a1a1a',
-    letterSpacing: 1,
-  },
   nameTextContainer: {
     marginLeft: 14,
     flex: 1,
-  },
-  leadName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: 0.3,
   },
   leadMetaRow: {
     flexDirection: 'row',
@@ -855,13 +1002,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4CAF50',
-    marginRight: 6,
   },
   statusText: {
     fontSize: 11,
@@ -990,40 +1130,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(212, 175, 55, 0.15)',
   },
   
-  // Requirement section
-  requirementContainer: {
-    marginTop: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: 14,
-    padding: 14,
-  },
-  requirementHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  requirementLabel: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginLeft: 10,
-  },
-  requirementBox: {
-    backgroundColor: 'rgba(255, 152, 0, 0.05)',
-    borderRadius: 10,
-    padding: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF9800',
-  },
-  requirementText: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontWeight: '400',
-    lineHeight: 20,
-  },
-  
   // Card footer
   cardFooter: {
     flexDirection: 'row',
@@ -1121,55 +1227,32 @@ const styles = StyleSheet.create({
 
   // Carousel wrapper
   carouselWrapper: {
-    marginBottom: 16,
   },
 
-  // Filter & Sort Controls
-  controlsContainer: {
+  // Recent Leads Heading
+  recentLeadsContainer: {
+    marginTop: 2,
+    marginBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
-    paddingHorizontal: 24,
   },
-  activeFilterContainer: {
+  recentLeadsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    letterSpacing: 0.3,
+  },
+  viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(212, 175, 55, 0.1)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.3)',
+    gap: 4,
   },
-  activeFilterText: {
+  viewAllText: {
     fontSize: 13,
-    color: '#D4AF37',
     fontWeight: '600',
-    marginLeft: 6,
-  },
-  activeFilterCount: {
-    fontSize: 12,
-    color: 'rgba(212, 175, 55, 0.7)',
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  sortButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.2)',
-  },
-  sortButtonText: {
-    fontSize: 13,
     color: '#D4AF37',
-    fontWeight: '600',
-    marginLeft: 6,
+    letterSpacing: 0.2,
   },
 
   // Modern Empty State Design
@@ -1333,6 +1416,33 @@ const styles = StyleSheet.create({
   emptyCtaText: {
     fontSize: 16,
     fontWeight: '800',
+    color: '#000',
+    letterSpacing: 0.3,
+  },
+
+  // Floating Add Lead Button
+  floatingAddButton: {
+    position: 'absolute',
+    right: 20,
+    shadowColor: '#D4AF37',
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
+    zIndex: 1000,
+  },
+  floatingButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    gap: 8,
+  },
+  floatingButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
     color: '#000',
     letterSpacing: 0.3,
   },
