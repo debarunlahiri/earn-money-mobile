@@ -8,13 +8,17 @@ import {
   PanResponder,
   Dimensions,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
+import * as Location from 'expo-location';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Button} from '../components/Button';
 import {Input} from '../components/Input';
 import {Dialog} from '../components/Dialog';
 import {EnhancedTouchable} from '../components/EnhancedTouchable';
+import {Toast} from '../components/Toast';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {INDIA_STATES} from '../data/indiaStates';
 import {INDIA_CITIES, getCitiesByState} from '../data/indiaCities';
@@ -60,10 +64,16 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedSector, setSelectedSector] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
   const [sector, setSector] = useState('');
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   const [showSectorPicker, setShowSectorPicker] = useState(false);
+
+  // Toast states
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
 
   // Pincode states
   const [pincode, setPincode] = useState('');
@@ -104,6 +114,13 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     return city ? city.name : '';
   };
 
+  // Toast function
+  const showToast = useCallback((message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  }, []);
+
   // Handle state change - reset city
   const handleStateChange = (stateId: string) => {
     setSelectedState(stateId);
@@ -117,6 +134,149 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     setSelectedSector('');
     setShowCityPicker(false);
   };
+
+  // Get current location
+  const getCurrentLocation = useCallback(async () => {
+    setLocationLoading(true);
+    
+    try {
+      // Check if location services are enabled first (important for Realme devices)
+      const isLocationEnabled = await Location.hasServicesEnabledAsync();
+      if (!isLocationEnabled) {
+        showToast('Please enable Location Services in your device settings.', 'warning');
+        setLocationLoading(false);
+        return;
+      }
+
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        showToast('Location permission is required. Please enable location access in settings.', 'warning');
+        setLocationLoading(false);
+        return;
+      }
+
+      // Try to get location with timeout and fallback accuracy levels
+      // Realme devices often need lower accuracy or longer timeout
+      let location: Location.LocationObject | null = null;
+      const accuracyLevels = [
+        Location.Accuracy.Balanced,
+        Location.Accuracy.Low,
+        Location.Accuracy.Lowest,
+      ];
+
+      // First, try to get last known position as a quick fallback
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        if (lastKnown) {
+          console.log('Using last known position');
+          location = lastKnown;
+        }
+      } catch (err) {
+        console.log('No last known position available');
+      }
+
+      // If no last known position, try current position with different accuracy levels
+      if (!location) {
+        for (let i = 0; i < accuracyLevels.length; i++) {
+          try {
+            console.log(`Attempting to get location with accuracy: ${accuracyLevels[i]}`);
+            
+            // Use Promise.race to implement timeout (20 seconds)
+            location = await Promise.race<Location.LocationObject>([
+              Location.getCurrentPositionAsync({
+                accuracy: accuracyLevels[i],
+              }),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Location timeout')), 20000)
+              ),
+            ]);
+
+            if (location) {
+              console.log('Location obtained successfully:', location.coords);
+              break; // Success, exit loop
+            }
+          } catch (err) {
+            console.log(`Failed with accuracy ${accuracyLevels[i]}:`, err);
+            if (i === accuracyLevels.length - 1) {
+              // Last attempt failed
+              showToast('Unable to get location. Please ensure GPS is enabled and try again, or enter address manually.', 'error');
+              setLocationLoading(false);
+              return;
+            }
+            // Continue to next accuracy level
+          }
+        }
+      }
+
+      if (!location) {
+        showToast('Location not available. Please enter address manually.', 'warning');
+        setLocationLoading(false);
+        return;
+      }
+
+      // Reverse geocode to get address
+      const [addressData] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+
+      if (addressData) {
+        console.log('Address data received:', addressData);
+        
+        // Build address string from available components
+        const addressParts = [];
+        if (addressData.streetNumber) addressParts.push(addressData.streetNumber);
+        if (addressData.street) addressParts.push(addressData.street);
+        if (addressData.name && !addressData.street) addressParts.push(addressData.name);
+        
+        const addressLine = addressParts.join(' ').trim();
+        if (addressLine) {
+          setPropertySearchingIn(addressLine);
+        }
+
+        // Set sector/locality with multiple fallbacks
+        const localityValue = addressData.subregion || 
+                             addressData.district || 
+                             addressData.city || 
+                             addressData.region || 
+                             '';
+        if (localityValue) {
+          setSector(localityValue);
+        }
+
+        // Set postal code and trigger auto-fill
+        if (addressData.postalCode) {
+          const cleanPostalCode = addressData.postalCode.replace(/\s/g, '');
+          setPincode(cleanPostalCode);
+          // Trigger pincode lookup to auto-fill state and city
+          await handlePincodeChange(cleanPostalCode);
+        }
+
+        showToast('Location fetched successfully!', 'success');
+      } else {
+        showToast('Location found but address details unavailable. Please enter manually.', 'warning');
+      }
+    } catch (error: any) {
+      console.error('Location error:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to fetch current location.';
+      
+      if (error.message?.includes('timeout')) {
+        errorMessage = 'Location request timed out. Please ensure GPS is enabled and try again.';
+      } else if (error.message?.includes('denied')) {
+        errorMessage = 'Location permission denied. Please enable location access in settings.';
+      } else if (error.code === 'E_LOCATION_UNAVAILABLE') {
+        errorMessage = 'Location unavailable. Please check if GPS is enabled and you are not in airplane mode.';
+      }
+      
+      showToast(errorMessage, 'error');
+    } finally {
+      setLocationLoading(false);
+    }
+  }, []);
 
   // Get sector name from id
   const getSectorName = (sectorId: string) => {
@@ -586,9 +746,23 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
               />
             }
             rightIcon={
-              <Text style={{color: propertySearchingIn.length >= 70 ? '#FF6B6B' : theme.colors.textSecondary, fontSize: 12}}>
-                {propertySearchingIn.length}/80
-              </Text>
+              <TouchableOpacity 
+                onPress={getCurrentLocation}
+                disabled={locationLoading}
+                activeOpacity={0.7}>
+                {locationLoading ? (
+                  <ActivityIndicator 
+                    size="small" 
+                    color={theme.colors.primary} 
+                  />
+                ) : (
+                  <Icon 
+                    name="my-location" 
+                    size={24} 
+                    color={theme.colors.primary} 
+                  />
+                )}
+              </TouchableOpacity>
             }
           />
 
@@ -901,6 +1075,14 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
         onClose={() => setDialogVisible(false)}
         onConfirm={dialogOnConfirm}
       />
+
+      {/* Toast Notification */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
     </View>
   );
 };
@@ -1018,5 +1200,23 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: 24,
+  },
+  locationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.3)',
+    backgroundColor: 'rgba(212, 175, 55, 0.05)',
+    marginTop: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  locationButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

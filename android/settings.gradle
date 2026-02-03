@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'Earn Money'
+rootProject.name = 'Property Lead Finder'
 
 dependencyResolutionManagement {
   versionCatalogs {

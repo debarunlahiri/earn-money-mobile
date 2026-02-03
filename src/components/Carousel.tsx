@@ -33,7 +33,7 @@ export const Carousel: React.FC<CarouselProps> = ({
   items,
   autoPlay = true,
   autoPlayInterval = 3000,
-  height = 200,
+  height = 180,
   showPagination = true,
   onItemPress,
 }) => {
@@ -42,16 +42,10 @@ export const Carousel: React.FC<CarouselProps> = ({
   const scrollX = useRef(new Animated.Value(0)).current;
   const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Card spacing and sizing
-  const HORIZONTAL_PADDING = 8;
-  const CARD_SPACING = 12;
-  const cardWidth = SCREEN_WIDTH - HORIZONTAL_PADDING * 2 - CARD_SPACING;
-
   useEffect(() => {
     if (autoPlay && items.length > 1) {
       startAutoPlay();
     }
-
     return () => {
       if (autoPlayTimerRef.current) {
         clearInterval(autoPlayTimerRef.current);
@@ -63,21 +57,14 @@ export const Carousel: React.FC<CarouselProps> = ({
     if (autoPlayTimerRef.current) {
       clearInterval(autoPlayTimerRef.current);
     }
-
     autoPlayTimerRef.current = setInterval(() => {
       const nextIndex = (currentIndex + 1) % items.length;
-      scrollToIndex(nextIndex);
-    }, autoPlayInterval);
-  };
-
-  const scrollToIndex = (index: number) => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        x: index * SCREEN_WIDTH,
+      scrollViewRef.current?.scrollTo({
+        x: nextIndex * SCREEN_WIDTH,
         animated: true,
       });
-      setCurrentIndex(index);
-    }
+      setCurrentIndex(nextIndex);
+    }, autoPlayInterval);
   };
 
   const handleScroll = Animated.event(
@@ -92,15 +79,15 @@ export const Carousel: React.FC<CarouselProps> = ({
     }
   );
 
-  const handleMomentumScrollEnd = () => {
-    if (autoPlay) {
-      startAutoPlay();
-    }
-  };
-
   const handleScrollBeginDrag = () => {
     if (autoPlayTimerRef.current) {
       clearInterval(autoPlayTimerRef.current);
+    }
+  };
+
+  const handleMomentumScrollEnd = () => {
+    if (autoPlay) {
+      startAutoPlay();
     }
   };
 
@@ -115,7 +102,9 @@ export const Carousel: React.FC<CarouselProps> = ({
         onScrollBeginDrag={handleScrollBeginDrag}
         onMomentumScrollEnd={handleMomentumScrollEnd}
         scrollEventThrottle={16}
-        decelerationRate="fast">
+        decelerationRate="fast"
+        snapToInterval={SCREEN_WIDTH}
+        snapToAlignment="center">
         {items.map((item, index) => {
           const inputRange = [
             (index - 1) * SCREEN_WIDTH,
@@ -123,90 +112,65 @@ export const Carousel: React.FC<CarouselProps> = ({
             (index + 1) * SCREEN_WIDTH,
           ];
 
-          // Smooth scale effect
           const scale = scrollX.interpolate({
             inputRange,
-            outputRange: [0.92, 1, 0.92],
+            outputRange: [0.9, 1, 0.9],
             extrapolate: 'clamp',
           });
 
-          // Fade effect
           const opacity = scrollX.interpolate({
             inputRange,
             outputRange: [0.7, 1, 0.7],
             extrapolate: 'clamp',
           });
 
-          // Subtle vertical movement
-          const translateY = scrollX.interpolate({
-            inputRange,
-            outputRange: [10, 0, 10],
-            extrapolate: 'clamp',
-          });
-
           return (
-            <View key={item.id} style={{width: SCREEN_WIDTH, paddingHorizontal: HORIZONTAL_PADDING}}>
+            <View key={item.id} style={styles.slide}>
               <Animated.View
                 style={[
-                  styles.cardContainer,
+                  styles.card,
                   {
-                    width: cardWidth,
                     height,
-                    transform: [
-                      {scale},
-                      {translateY},
-                    ],
+                    transform: [{scale}],
                     opacity,
                   },
                 ]}>
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={() => onItemPress?.(item, index)}
-                  style={styles.cardTouchable}>
-                  {/* Gradient border with glow */}
+                  style={styles.touchable}>
                   <LinearGradient
-                    colors={
-                      item.gradient || [
-                        'rgba(212, 175, 55, 0.6)',
-                        'rgba(212, 175, 55, 0.3)',
-                        'rgba(212, 175, 55, 0.6)',
-                      ] as const
-                    }
+                    colors={[
+                      'rgba(212, 175, 55, 0.4)',
+                      'rgba(212, 175, 55, 0.2)',
+                      'rgba(212, 175, 55, 0.4)',
+                    ]}
                     start={{x: 0, y: 0}}
                     end={{x: 1, y: 1}}
                     style={styles.gradientBorder}>
-                    <View style={styles.card}>
-                      {/* Subtle glass overlay */}
-                      <View style={styles.glassOverlay} />
-                      
-                      {/* Content */}
-                      <View style={styles.contentContainer}>
-                        {item.component ? (
-                          item.component
-                        ) : item.image ? (
-                          <Image
-                            source={item.image}
-                            style={styles.cardImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <LinearGradient
-                            colors={
-                              item.gradient || [
-                                'rgba(212, 175, 55, 0.25)',
-                                'rgba(139, 69, 19, 0.15)',
-                                'rgba(212, 175, 55, 0.1)',
-                              ] as const
-                            }
-                            start={{x: 0, y: 0}}
-                            end={{x: 1, y: 1}}
-                            style={styles.defaultGradient}
-                          />
-                        )}
-                      </View>
-                      
-                      {/* Subtle inner highlight */}
-                      <View style={styles.innerHighlight} />
+                    <View style={styles.cardContent}>
+                      {item.component ? (
+                        item.component
+                      ) : item.image ? (
+                        <Image
+                          source={item.image}
+                          style={styles.image}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <LinearGradient
+                          colors={
+                            item.gradient || [
+                              'rgba(212, 175, 55, 0.25)',
+                              'rgba(139, 69, 19, 0.15)',
+                              'rgba(212, 175, 55, 0.1)',
+                            ]
+                          }
+                          start={{x: 0, y: 0}}
+                          end={{x: 1, y: 1}}
+                          style={styles.defaultGradient}
+                        />
+                      )}
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -227,7 +191,7 @@ export const Carousel: React.FC<CarouselProps> = ({
 
             const dotWidth = scrollX.interpolate({
               inputRange,
-              outputRange: [8, 28, 8],
+              outputRange: [8, 24, 8],
               extrapolate: 'clamp',
             });
 
@@ -237,42 +201,21 @@ export const Carousel: React.FC<CarouselProps> = ({
               extrapolate: 'clamp',
             });
 
-            const dotScale = scrollX.interpolate({
-              inputRange,
-              outputRange: [1, 1.15, 1],
-              extrapolate: 'clamp',
-            });
-
             return (
-              <TouchableOpacity
+              <Animated.View
                 key={index}
-                onPress={() => scrollToIndex(index)}
-                activeOpacity={0.8}
-                style={styles.dotTouchable}>
-                <Animated.View
-                  style={[
-                    styles.dotContainer,
-                    {
-                      transform: [{scale: dotScale}],
-                    },
-                  ]}>
-                  {/* Active dot background glow */}
-                  {index === currentIndex && (
-                    <View style={styles.activeDotGlow} />
-                  )}
-                  {/* Main dot */}
-                  <Animated.View
-                    style={[
-                      styles.dot,
-                      {
-                        width: dotWidth,
-                        opacity: dotOpacity,
-                        backgroundColor: index === currentIndex ? '#D4AF37' : 'rgba(212, 175, 55, 0.5)',
-                      },
-                    ]}
-                  />
-                </Animated.View>
-              </TouchableOpacity>
+                style={[
+                  styles.dot,
+                  {
+                    width: dotWidth,
+                    opacity: dotOpacity,
+                    backgroundColor:
+                      index === currentIndex
+                        ? '#D4AF37'
+                        : 'rgba(212, 175, 55, 0.4)',
+                  },
+                ]}
+              />
             );
           })}
         </View>
@@ -286,90 +229,49 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     marginHorizontal: -24,
   },
-  cardContainer: {
-    alignSelf: 'center',
+  slide: {
+    width: SCREEN_WIDTH,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  cardTouchable: {
+  card: {
+    width: SCREEN_WIDTH - 48,
+  },
+  touchable: {
     flex: 1,
   },
   gradientBorder: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 2,
     shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 6},
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  card: {
+  cardContent: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: 'rgba(20, 20, 25, 0.95)',
   },
-  glassOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-  },
-  contentContainer: {
-    flex: 1,
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  cardImage: {
+  image: {
     width: '100%',
     height: '100%',
   },
   defaultGradient: {
     flex: 1,
   },
-  innerHighlight: {
-    position: 'absolute',
-    top: 1,
-    left: 1,
-    right: 1,
-    bottom: 1,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.15)',
-    pointerEvents: 'none',
-  },
   pagination: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 18,
-    gap: 8,
-  },
-  dotTouchable: {
-    padding: 4,
-  },
-  dotContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activeDotGlow: {
-    position: 'absolute',
-    width: 32,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'rgba(212, 175, 55, 0.25)',
-    shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 0},
-    shadowOpacity: 0.6,
-    shadowRadius: 6,
+    marginTop: 16,
+    gap: 6,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#D4AF37',
+    height: 6,
+    borderRadius: 3,
   },
 });

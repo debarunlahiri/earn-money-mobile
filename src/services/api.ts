@@ -623,6 +623,43 @@ export interface ProfileWithLeadsResponse {
   leads_summary?: LeadsSummaryItem[];
 }
 
+export interface LogoResponse {
+  status: string;
+  status_code: number;
+  logo: string;
+}
+
+/**
+ * Fetches app logo URL
+ */
+export const getLogo = async (
+  userid: string | number,
+  token: string | number,
+): Promise<LogoResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'logo');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
 /**
  * Fetches comprehensive profile data including slider, leads, and leads summary
  */

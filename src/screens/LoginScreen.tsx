@@ -16,6 +16,7 @@ import {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import {Button} from '../components/Button';
+import {Logo} from '../components/Logo';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {TextInput} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -517,6 +518,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({navigation}) => {
               <View style={styles.glassHighlight} />
               <View style={styles.glassInnerBorder} />
               <View style={styles.glassContent}>
+                <View style={styles.logoContainer}>
+                  <Logo size={80} preferLocal={true} />
+                </View>
             <Text style={[styles.title, {color: theme.colors.text}]}>
               Welcome Back
             </Text>
@@ -783,6 +787,10 @@ const styles = StyleSheet.create({
   rupee4: {
     top: height * 0.7,
     right: width * 0.1,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   title: {
     fontSize: 38,

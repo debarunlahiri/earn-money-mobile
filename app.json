@@ -1,10 +1,11 @@
 {
   "expo": {
-    "name": "Earn Money",
+    "name": "Property Lead Finder",
     "slug": "earn-money-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/logo/logo.jpg",
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
@@ -17,7 +18,8 @@
       "bundleIdentifier": "com.debarunlahiri.earnmoney",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to fetch your current address for registration."
-      }
+      },
+      "icon": "./assets/logo/logo.jpg"
     },
     "android": {
       "package": "com.debarunlahiri.earnmoney",
@@ -27,15 +29,17 @@
         "POST_NOTIFICATIONS"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#D4AF37"
+        "backgroundColor": "#D4AF37",
+        "foregroundImage": "./assets/logo/logo.jpg"
       },
+      "icon": "./assets/logo/logo.jpg",
       "googleServicesFile": "./google-services.json",
       "useNextNotificationsApi": true
     },
     "notification": {
       "color": "#D4AF37",
       "androidMode": "default",
-      "androidCollapsedTitle": "Earn Money"
+      "androidCollapsedTitle": "Property Lead Finder"
     },
     "plugins": [
       [

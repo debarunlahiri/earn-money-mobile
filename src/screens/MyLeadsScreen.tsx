@@ -24,6 +24,7 @@ import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 import {useAuth} from '../context/AuthContext';
 import {viewLeads, Lead, getProfileWithLeads, SliderItem, LeadsSummaryItem} from '../services/api';
 import {Carousel, CarouselItem} from '../components/Carousel';
+import {Logo} from '../components/Logo';
 
 interface MyLeadsScreenProps {
   navigation: any;
@@ -408,7 +409,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           </View>
 
           {/* Carousel Section - Always show */}
-          <View style={styles.carouselWrapper}>
+          <View>
             <Carousel
               items={carouselItems}
               autoPlay={true}
@@ -758,6 +759,10 @@ const styles = StyleSheet.create({
   // Welcome Section
   welcomeSection: {
     marginBottom: 16,
+  },
+  welcomeLogoContainer: {
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   welcomeText: {
     fontSize: 14,
@@ -1225,9 +1230,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // Carousel wrapper
-  carouselWrapper: {
-  },
+ 
 
   // Recent Leads Heading
   recentLeadsContainer: {
