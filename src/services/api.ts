@@ -41,6 +41,18 @@ export interface VerifyOTPResponse {
   userdata?: UserData;
 }
 
+export interface PropertyTypesResponse {
+  status: string;
+  status_code: number;
+  message: string[];
+}
+
+export interface PropertySearchForResponse {
+  status: string;
+  status_code: number;
+  message: string[];
+}
+
 /**
  * Sends OTP to the provided mobile number
  */
@@ -684,6 +696,59 @@ export const getProfileWithLeads = async (
     const data = await response.json();
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
     checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Fetches property types from API
+ */
+export const getPropertyTypes = async (): Promise<PropertyTypesResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'property_type');
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Fetches property search options based on property type
+ */
+export const getPropertySearchFor = async (
+  propertyType: string,
+): Promise<PropertySearchForResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'property_for');
+  formData.append('property_type', propertyType);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
     return data;
   } catch (error) {
     logError(API_BASE_URL, error, Date.now() - startTime);

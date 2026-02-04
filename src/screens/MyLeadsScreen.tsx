@@ -14,6 +14,7 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {BlurView} from '@react-native-community/blur';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -201,6 +202,13 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
+
+  // Refresh leads when screen comes into focus (after adding new lead)
+  useFocusEffect(
+    useCallback(() => {
+      fetchLeads();
+    }, [fetchLeads])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

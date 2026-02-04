@@ -1,4 +1,4 @@
-import React, {useState, useRef, useCallback} from 'react';
+import React, {useState, useRef, useCallback, useEffect} from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import * as Location from 'expo-location';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
@@ -24,7 +25,7 @@ import {INDIA_STATES} from '../data/indiaStates';
 import {INDIA_CITIES, getCitiesByState} from '../data/indiaCities';
 import {getSectorsByCity} from '../data/indiaSectors';
 import {useAuth} from '../context/AuthContext';
-import {addLead} from '../services/api';
+import {addLead, getPropertyTypes, getPropertySearchFor} from '../services/api';
 
 interface AddNewEnquiryScreenProps {
   navigation: any;
@@ -43,6 +44,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const {userData} = useAuth();
   const [enquiryFor, setEnquiryFor] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [mobileNumberError, setMobileNumberError] = useState('');
   const [email, setEmail] = useState('');
   const [propertyType, setPropertyType] = useState('');
   const [propertySearchFor, setPropertySearchFor] = useState('');
@@ -90,6 +92,12 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [dialogType, setDialogType] = useState<'info' | 'success' | 'error' | 'warning'>('info');
   const [dialogOnConfirm, setDialogOnConfirm] = useState<(() => void) | undefined>(undefined);
 
+  // Property types and search options states
+  const [propertyTypes, setPropertyTypes] = useState<string[]>([]);
+  const [propertySearchForOptions, setPropertySearchForOptions] = useState<string[]>([]);
+  const [propertyTypesLoading, setPropertyTypesLoading] = useState(false);
+  const [propertySearchForLoading, setPropertySearchForLoading] = useState(false);
+
   // Get sorted states alphabetically
   const sortedStates = [...INDIA_STATES].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -120,6 +128,51 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     setToastType(type);
     setToastVisible(true);
   }, []);
+
+  // Indian mobile number validation
+  const validateIndianMobileNumber = useCallback((number: string) => {
+    // Remove all non-digit characters
+    const cleanNumber = number.replace(/\D/g, '');
+    
+    // Check if empty
+    if (!cleanNumber) {
+      setMobileNumberError('Mobile number is required');
+      return false;
+    }
+    
+    // Check if exactly 10 digits
+    if (cleanNumber.length !== 10) {
+      setMobileNumberError('Mobile number must be exactly 10 digits');
+      return false;
+    }
+    
+    // Check if starts with valid Indian mobile prefix (6, 7, 8, 9)
+    const firstDigit = cleanNumber.charAt(0);
+    if (!['6', '7', '8', '9'].includes(firstDigit)) {
+      setMobileNumberError('Mobile number must start with 6, 7, 8, or 9');
+      return false;
+    }
+    
+    // Clear error if valid
+    setMobileNumberError('');
+    return true;
+  }, []);
+
+  // Handle mobile number change
+  const handleMobileNumberChange = useCallback((text: string) => {
+    // Only allow digits and max 10 characters
+    const cleanNumber = text.replace(/\D/g, '').substring(0, 10);
+    setMobileNumber(cleanNumber);
+    
+    // Validate if 10 digits
+    if (cleanNumber.length === 10) {
+      validateIndianMobileNumber(cleanNumber);
+    } else if (cleanNumber.length > 0) {
+      setMobileNumberError('Mobile number must be exactly 10 digits');
+    } else {
+      setMobileNumberError('');
+    }
+  }, [validateIndianMobileNumber]);
 
   // Handle state change - reset city
   const handleStateChange = (stateId: string) => {
@@ -291,6 +344,79 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     setShowSectorPicker(false);
   };
 
+  // Fetch property types from API
+  const fetchPropertyTypes = useCallback(async () => {
+    setPropertyTypesLoading(true);
+    try {
+      const response = await getPropertyTypes();
+      if (response.status === 'success' && response.message) {
+        setPropertyTypes(response.message);
+      } else {
+        showToast('Failed to load property types', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching property types:', error);
+      showToast('Failed to load property types', 'error');
+    } finally {
+      setPropertyTypesLoading(false);
+    }
+  }, []);
+
+  // Fetch property search options based on property type
+  const fetchPropertySearchFor = useCallback(async (selectedPropertyType: string) => {
+    if (!selectedPropertyType) {
+      setPropertySearchForOptions([]);
+      return;
+    }
+    
+    setPropertySearchForLoading(true);
+    try {
+      const response = await getPropertySearchFor(selectedPropertyType);
+      if (response.status === 'success' && response.message) {
+        setPropertySearchForOptions(response.message);
+      } else {
+        showToast('Failed to load property search options', 'error');
+        setPropertySearchForOptions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching property search options:', error);
+      showToast('Failed to load property search options', 'error');
+      setPropertySearchForOptions([]);
+    } finally {
+      setPropertySearchForLoading(false);
+    }
+  }, []);
+
+  // Handle property type change
+  const handlePropertyTypeChange = (selectedType: string) => {
+    setPropertyType(selectedType);
+    setPropertySearchFor(''); // Reset search for when property type changes
+    setShowPropertyTypePicker(false);
+    fetchPropertySearchFor(selectedType); // Fetch search options for new property type
+  };
+
+  // Handle property search for change
+  const handlePropertySearchForChange = (selectedSearchFor: string) => {
+    setPropertySearchFor(selectedSearchFor);
+    setShowPropertySearchForPicker(false);
+  };
+
+  // Fetch property types when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchPropertyTypes();
+    }, [fetchPropertyTypes])
+  );
+
+  // Auto-fetch property search options when property type changes
+  useEffect(() => {
+    if (propertyType) {
+      fetchPropertySearchFor(propertyType);
+    } else {
+      setPropertySearchForOptions([]);
+    }
+  }, [propertyType]);
+
   // Handle pincode change and auto-fill
   const handlePincodeChange = useCallback(async (text: string) => {
     // Only allow digits and max 6 characters
@@ -456,6 +582,11 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   };
 
   const handleSubmit = async () => {
+    // Validate mobile number first
+    if (!validateIndianMobileNumber(mobileNumber)) {
+      return;
+    }
+
     if (
       !enquiryFor.trim() ||
       !mobileNumber.trim() ||
@@ -569,9 +700,11 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
           <Input
             label="Mobile Number *"
             value={mobileNumber}
-            onChangeText={setMobileNumber}
-            placeholder="Enter mobile number"
+            onChangeText={handleMobileNumberChange}
+            placeholder="Enter 10-digit mobile number"
             keyboardType="phone-pad"
+            maxLength={10}
+            error={mobileNumberError}
             leftIcon={
               <Icon name="phone" size={20} color={theme.colors.textSecondary} />
             }
@@ -628,35 +761,44 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                   borderWidth: 1,
                 },
               ]}>
-              {propertyTypeOptions.map(option => (
-                <EnhancedTouchable
-                  key={option}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.pickerItem,
-                    {
-                      backgroundColor: theme.colors.surface,
-                      borderBottomColor: theme.colors.border,
-                    },
-                  ]}
-                  hitSlopSize="small"
-                  onPress={() => {
-                    setPropertyType(option);
-                    setShowPropertyTypePicker(false);
-                  }}>
-                  <Text
+              {propertyTypesLoading ? (
+                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                </View>
+              ) : propertyTypes.length > 0 ? (
+                propertyTypes.map(option => (
+                  <EnhancedTouchable
+                    key={option}
+                    activeOpacity={0.7}
                     style={[
-                      styles.pickerText,
+                      styles.pickerItem,
                       {
-                        color: theme.colors.text,
-                        fontWeight:
-                          propertyType === option ? '600' : '400',
+                        backgroundColor: theme.colors.surface,
+                        borderBottomColor: theme.colors.border,
                       },
-                    ]}>
-                    {option}
+                    ]}
+                    hitSlopSize="small"
+                    onPress={() => handlePropertyTypeChange(option)}>
+                    <Text
+                      style={[
+                        styles.pickerText,
+                        {
+                          color: theme.colors.text,
+                          fontWeight:
+                            propertyType === option ? '600' : '400',
+                        },
+                      ]}>
+                      {option}
+                    </Text>
+                  </EnhancedTouchable>
+                ))
+              ) : (
+                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                  <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
+                    No property types available
                   </Text>
-                </EnhancedTouchable>
-              ))}
+                </View>
+              )}
             </View>
           )}
 
@@ -700,35 +842,50 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                   borderWidth: 1,
                 },
               ]}>
-              {propertySearchOptions.map(option => (
-                <EnhancedTouchable
-                  key={option}
-                  activeOpacity={0.7}
-                  style={[
-                    styles.pickerItem,
-                    {
-                      backgroundColor: theme.colors.surface,
-                      borderBottomColor: theme.colors.border,
-                    },
-                  ]}
-                  hitSlopSize="small"
-                  onPress={() => {
-                    setPropertySearchFor(option);
-                    setShowPropertySearchForPicker(false);
-                  }}>
-                  <Text
+              {propertySearchForLoading ? (
+                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                </View>
+              ) : propertySearchForOptions.length > 0 ? (
+                propertySearchForOptions.map(option => (
+                  <EnhancedTouchable
+                    key={option}
+                    activeOpacity={0.7}
                     style={[
-                      styles.pickerText,
+                      styles.pickerItem,
                       {
-                        color: theme.colors.text,
-                        fontWeight:
-                          propertySearchFor === option ? '600' : '400',
+                        backgroundColor: theme.colors.surface,
+                        borderBottomColor: theme.colors.border,
                       },
-                    ]}>
-                    {option}
+                    ]}
+                    hitSlopSize="small"
+                    onPress={() => handlePropertySearchForChange(option)}>
+                    <Text
+                      style={[
+                        styles.pickerText,
+                        {
+                          color: theme.colors.text,
+                          fontWeight:
+                            propertySearchFor === option ? '600' : '400',
+                        },
+                      ]}>
+                      {option}
+                    </Text>
+                  </EnhancedTouchable>
+                ))
+              ) : propertyType ? (
+                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                  <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
+                    No search options available
                   </Text>
-                </EnhancedTouchable>
-              ))}
+                </View>
+              ) : (
+                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                  <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
+                    Select property type first
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
