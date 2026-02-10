@@ -32,7 +32,7 @@ import {
   isValidUPI,
   formatUPIId,
 } from '../utils/phoneUtils';
-import {registerUser} from '../services/api';
+import {registerUser, updateProfile, ProfileData} from '../services/api';
 import * as Location from 'expo-location';
 
 interface RegisterDetailsScreenProps {
@@ -49,16 +49,81 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
   const {fcmToken} = useNotifications();
   const insets = useSafeAreaInsets();
   
-  // Get userData from route params (passed from OTP screen) or from auth context
-  const {phoneNumber, userData: routeUserData} = route.params || {};
+  // Get route params
+  const {phoneNumber, userData: routeUserData, isEditMode, profileData} = route.params || {};
   const userData = routeUserData || authUserData;
+  
+  // Check if we're in edit mode
+  const isEditing = isEditMode === true && profileData;
+  
+  // Parse stored address in edit mode: format is "address, sector, city, state, pincode"
+  const parseStoredAddress = () => {
+    if (!isEditing || !profileData.address) return { addr: '', sec: '', pin: '', stateId: '', cityId: '' };
+    
+    const parts = profileData.address.split(',').map((p: string) => p.trim());
+    let addr = '';
+    let sec = '';
+    let pin = '';
+    let stateId = '';
+    let cityId = '';
+    
+    // Try to extract pincode (6-digit number) from the end
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (/^\d{6}$/.test(parts[i])) {
+        pin = parts[i];
+        parts.splice(i, 1);
+        break;
+      }
+    }
+    
+    // Try to match a state name from the parts
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const matchedState = INDIA_STATES.find(
+        s => s.name.toLowerCase() === parts[i].toLowerCase()
+      );
+      if (matchedState) {
+        stateId = matchedState.id;
+        parts.splice(i, 1);
+        break;
+      }
+    }
+    
+    // Try to match a city name from the parts (using matched state if available)
+    if (stateId) {
+      const citiesInState = getCitiesByState(stateId);
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const matchedCity = citiesInState.find(
+          c => c.name.toLowerCase() === parts[i].toLowerCase()
+        );
+        if (matchedCity) {
+          cityId = matchedCity.id;
+          parts.splice(i, 1);
+          break;
+        }
+      }
+    }
+    
+    // Remaining parts: first is address, second (if any) is sector
+    if (parts.length >= 2) {
+      addr = parts[0];
+      sec = parts[1];
+    } else if (parts.length === 1) {
+      addr = parts[0];
+    }
+    
+    return { addr, sec, pin, stateId, cityId };
+  };
+  
+  const parsedAddress = parseStoredAddress();
+  
+  // Initialize states with profile data if in edit mode
   const [currentStep, setCurrentStep] = useState(1);
-  const [name, setName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [ifscCode, setIfscCode] = useState('');
-  const [upiId, setUpiId] = useState('');
-  const [address, setAddress] = useState('');
-  const [sector, setSector] = useState('');
+  const [name, setName] = useState(isEditing ? profileData.username || '' : '');
+  const [accountNumber, setAccountNumber] = useState(isEditing ? profileData.ac_no || '' : '');
+  const [ifscCode, setIfscCode] = useState(isEditing ? profileData.ifsc_code || '' : '');
+  const [upiId, setUpiId] = useState(isEditing ? profileData.upi_id || '' : '');
+  const [address, setAddress] = useState(isEditing ? parsedAddress.addr : '');
+  const [sector, setSector] = useState(isEditing ? parsedAddress.sec : '');
   
   // Validation states
   const [accountNumberError, setAccountNumberError] = useState('');
@@ -66,13 +131,13 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
   const [upiIdError, setUpiIdError] = useState('');
   
   // Location dropdown states
-  const [selectedState, setSelectedState] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
+  const [selectedState, setSelectedState] = useState(isEditing ? parsedAddress.stateId : '');
+  const [selectedCity, setSelectedCity] = useState(isEditing ? parsedAddress.cityId : '');
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
   
   // Pincode states
-  const [pincode, setPincode] = useState('');
+  const [pincode, setPincode] = useState(isEditing ? parsedAddress.pin : '');
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeError, setPincodeError] = useState('');
   
@@ -256,42 +321,48 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
         console.log('Error getting cached location:', err);
       }
 
-      // Strategy 2: Only try fresh GPS if no cached location exists
-      // Use very short timeout since Realme GPS often doesn't work indoors
+      // Strategy 2: Try fresh location with multiple accuracy levels
       if (!location) {
-        console.log('No cached location found, attempting fresh GPS fix...');
-        console.log('Note: This may fail indoors on Realme devices');
+        console.log('No cached location found, attempting fresh location fix...');
         
-        try {
-          // Single attempt with lowest accuracy and short timeout
-          location = await Promise.race<Location.LocationObject>([
-            Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Lowest,
-              mayShowUserSettingsDialog: true,
-              timeInterval: 10000,
-            }),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('GPS timeout')), 20000)
-            ),
-          ]);
+        const accuracyLevels = [
+          { accuracy: Location.Accuracy.Low, label: 'Network/Low', timeout: 10000 },
+          { accuracy: Location.Accuracy.Lowest, label: 'Lowest', timeout: 15000 },
+          { accuracy: Location.Accuracy.Balanced, label: 'Balanced', timeout: 20000 },
+        ];
+        
+        for (const level of accuracyLevels) {
+          try {
+            console.log(`Trying ${level.label} accuracy (${level.timeout / 1000}s timeout)...`);
+            location = await Promise.race<Location.LocationObject>([
+              Location.getCurrentPositionAsync({
+                accuracy: level.accuracy,
+                mayShowUserSettingsDialog: true,
+              }),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('GPS timeout')), level.timeout)
+              ),
+            ]);
 
-          if (location && location.coords) {
-            console.log('Fresh GPS location obtained:', {
-              lat: location.coords.latitude,
-              lng: location.coords.longitude,
-              accuracy: location.coords.accuracy,
-            });
+            if (location && location.coords) {
+              console.log(`Location obtained via ${level.label}:`, {
+                lat: location.coords.latitude,
+                lng: location.coords.longitude,
+                accuracy: location.coords.accuracy,
+              });
+              break;
+            }
+          } catch (err: any) {
+            console.log(`${level.label} attempt failed:`, err.message || err);
           }
-        } catch (err: any) {
-          console.log('Fresh GPS failed:', err.message || err);
-          
-          // Show helpful error message
+        }
+        
+        if (!location) {
           showToast(
-            'GPS signal not available.\n\n' +
-            'For Realme/ColorOS devices:\n' +
-            '1. Go outdoors for better GPS signal\n' +
-            '2. Open Google Maps first to activate GPS\n' +
-            '3. Or enter address manually below',
+            'GPS signal not available. Tips:\n' +
+            '• Go outdoors for better signal\n' +
+            '• Open Google Maps first to warm up GPS\n' +
+            '• Or enter address manually',
             'error'
           );
           setLocationLoading(false);
@@ -562,34 +633,55 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           return;
         }
         
-        // Call registration API
-        const response = await registerUser({
-          userid: userId,
-          ac_no: acNo,
-          ifsc_code: ifsc,
-          upi_id: upi,
-          mobile: mobileNumber,
-          username: userName,
-          address: formattedAddress,
-          device_token: fcmToken || undefined,
-        });
-        
-        if (response.status === 'success' || response.status_code === 200) {
-          // Update userData with username, mobile, and set is_new to 'no' to mark profile as complete
-          // This will trigger the navigator to show the Home screen
-          const updatedUserData = {
-            ...(userData || {}),
-            username: userName,
-            mobile: mobileNumber,
-            is_new: 'no', // Mark profile as complete
-            // Also update token if returned from API
-            ...(response.userdata?.token && { token: response.userdata.token }),
-            ...(response.userdata?.userid && { userid: response.userdata.userid }),
-          };
-          await login(updatedUserData);
-          // Auth state change will automatically navigate to Home screen
+        // Check if we're in edit mode or registration mode
+        if (isEditing) {
+          // Use updateProfile API for editing existing profile
+          const response = await updateProfile(
+            userId,
+            userData?.token || '',
+            userName,
+            ifsc,
+            upi,
+            acNo,
+            formattedAddress
+          );
+          
+          if (response.status === 'success' || response.status_code === 200) {
+            showToast('Profile updated successfully!', 'success');
+            navigation.goBack(); // Navigate back to Profile screen
+          } else {
+            showToast(response.message || 'Failed to update profile. Please try again.', 'error');
+          }
         } else {
-          showToast(response.message || 'Registration failed. Please try again.', 'error');
+          // Use registerUser API for new registration
+          const response = await registerUser({
+            userid: userId,
+            ac_no: acNo,
+            ifsc_code: ifsc,
+            upi_id: upi,
+            mobile: mobileNumber,
+            username: userName,
+            address: formattedAddress,
+            device_token: fcmToken || undefined,
+          });
+          
+          if (response.status === 'success' || response.status_code === 200) {
+            // Update userData with username, mobile, and set is_new to 'no' to mark profile as complete
+            // This will trigger the navigator to show the Home screen
+            const updatedUserData = {
+              ...(userData || {}),
+              username: userName,
+              mobile: mobileNumber,
+              is_new: 'no', // Mark profile as complete
+              // Also update token if returned from API
+              ...(response.userdata?.token && { token: response.userdata.token }),
+              ...(response.userdata?.userid && { userid: response.userdata.userid }),
+            };
+            await login(updatedUserData);
+            // Auth state change will automatically navigate to Home screen
+          } else {
+            showToast(response.message || 'Registration failed. Please try again.', 'error');
+          }
         }
       } catch (error) {
         console.error('Registration error:', error);
@@ -628,8 +720,15 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           bounces={false}>
           <View style={styles.header}>
             <FallingRupees count={8} />
-            <Text style={titleStyle}>Complete Your Profile</Text>
-            <Text style={subtitleStyle}>Add your details to complete registration</Text>
+            {isEditing && (
+              <TouchableOpacity 
+                onPress={() => navigation.goBack()} 
+                style={styles.backButton}>
+                <Icon name="arrow-back" size={24} color={theme.colors.text} />
+              </TouchableOpacity>
+            )}
+            <Text style={titleStyle}>{isEditing ? 'Edit Your Profile' : 'Complete Your Profile'}</Text>
+            <Text style={subtitleStyle}>{isEditing ? 'Update your profile details' : 'Add your details to complete registration'}</Text>
           </View>
 
           {/* Progress Stepper */}
@@ -1072,7 +1171,7 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
             />
           ) : (
             <Button
-              title={isSubmitting ? "Registering..." : "Complete Registration"}
+              title={isSubmitting ? (isEditing ? "Updating..." : "Registering...") : (isEditing ? "Update Profile" : "Complete Registration")}
               onPress={() => {
                 Keyboard.dismiss();
                 handleComplete();
@@ -1118,6 +1217,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 40,
     marginBottom: 40,
+    width: '100%',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    zIndex: 10,
   },
   title: {
     fontSize: 28,
@@ -1271,7 +1380,7 @@ const styles = StyleSheet.create({
     height: 56,
     width: 0,
   },
-  backButton: {
+  navBackButton: {
     gap: 8,
   },
   iconButton: {

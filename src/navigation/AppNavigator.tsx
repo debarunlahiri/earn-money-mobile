@@ -121,6 +121,7 @@ export const AppNavigator = () => {
             <Stack.Screen name="Notifications" component={NotificationScreen} />
             <Stack.Screen name="AdminChatInbox" component={AdminChatInboxScreen} />
             <Stack.Screen name="AdminChatDetail" component={AdminChatDetailScreen} />
+            <Stack.Screen name="RegisterDetails" component={RegisterDetailsScreen} />
           </>
         )}
       </Stack.Navigator>

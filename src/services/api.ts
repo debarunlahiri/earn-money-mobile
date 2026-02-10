@@ -195,11 +195,15 @@ export interface ProfileResponse {
 export const getProfile = async (
   userid: string | number,
   token: string | number,
+  expo_token?: string,
 ): Promise<ProfileResponse> => {
   const formData = new FormData();
   formData.append('action', 'profile');
   formData.append('userid', userid.toString());
   formData.append('token', token.toString());
+  if (expo_token) {
+    formData.append('expo_token', expo_token);
+  }
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);
@@ -678,11 +682,15 @@ export const getLogo = async (
 export const getProfileWithLeads = async (
   userid: string | number,
   token: string | number,
+  expo_token?: string,
 ): Promise<ProfileWithLeadsResponse> => {
   const formData = new FormData();
   formData.append('action', 'profile');
   formData.append('userid', userid.toString());
   formData.append('token', token.toString());
+  if (expo_token) {
+    formData.append('expo_token', expo_token);
+  }
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);
@@ -729,14 +737,32 @@ export const getPropertyTypes = async (): Promise<PropertyTypesResponse> => {
 };
 
 /**
- * Fetches property search options based on property type
+ * Updates user profile
  */
-export const getPropertySearchFor = async (
-  propertyType: string,
-): Promise<PropertySearchForResponse> => {
+export interface UpdateProfileResponse {
+  status: string;
+  status_code: number;
+  message?: string;
+}
+
+export const updateProfile = async (
+  userid: string | number,
+  token: string | number,
+  username: string,
+  ifsc_code: string,
+  upi_id: string,
+  ac_no: string,
+  address: string,
+): Promise<UpdateProfileResponse> => {
   const formData = new FormData();
-  formData.append('action', 'property_for');
-  formData.append('property_type', propertyType);
+  formData.append('action', 'update_profile');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+  formData.append('ifsc_code', ifsc_code);
+  formData.append('username', username);
+  formData.append('upi_id', upi_id);
+  formData.append('ac_no', ac_no);
+  formData.append('address', address);
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);

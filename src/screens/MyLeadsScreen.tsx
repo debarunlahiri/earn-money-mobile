@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback, useMemo} from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,18 +14,19 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import {useFocusEffect} from '@react-navigation/native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {BlurView} from '@react-native-community/blur';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useTheme} from '../theme/ThemeContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from '@react-native-community/blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {FallingRupees} from '../components/FallingRupee';
-import {useScrollVisibility} from '../context/ScrollVisibilityContext';
-import {useAuth} from '../context/AuthContext';
-import {viewLeads, Lead, getProfileWithLeads, SliderItem, LeadsSummaryItem} from '../services/api';
-import {Carousel, CarouselItem} from '../components/Carousel';
-import {Logo} from '../components/Logo';
+import { FallingRupees } from '../components/FallingRupee';
+import { useScrollVisibility } from '../context/ScrollVisibilityContext';
+import { useAuth } from '../context/AuthContext';
+import { viewLeads, Lead, getProfileWithLeads, SliderItem, LeadsSummaryItem } from '../services/api';
+import { Carousel, CarouselItem } from '../components/Carousel';
+import { Logo } from '../components/Logo';
+import { registerForPushNotificationsAsync, getCachedExpoPushToken } from '../services/notificationService';
 
 interface MyLeadsScreenProps {
   navigation: any;
@@ -39,10 +40,10 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   navigation,
   hideHeader = false,
 }) => {
-  const {theme} = useTheme();
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const {userData} = useAuth();
-  const {handleScroll, headerTranslateY} = useScrollVisibility();
+  const { userData } = useAuth();
+  const { handleScroll, headerTranslateY } = useScrollVisibility();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +86,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       component: (
         <View style={styles.carouselCard}>
           <Image
-            source={{uri: item.img}}
+            source={{ uri: item.img }}
             style={styles.carouselImageBackground}
             resizeMode="cover"
           />
@@ -110,7 +111,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       const converted = leadsSummary.find(item => item.converted !== undefined)?.converted || 0;
       const total = newLeads + processing + cancelled + converted;
       const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
-      
+
       return { total, newLeads, contacted: processing, converted, conversionRate, cancelled };
     } else {
       // Fallback to computed from leads array
@@ -120,7 +121,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       const converted = leads.filter(l => l.status === 'converted').length;
       const cancelled = leads.filter(l => l.status === 'cancelled').length;
       const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
-      
+
       return { total, newLeads, contacted, converted, conversionRate, cancelled };
     }
   }, [leads, leadsSummary]);
@@ -128,12 +129,12 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   // Filtered and sorted leads
   const filteredAndSortedLeads = useMemo(() => {
     let filtered = [...leads];
-    
+
     // Apply filter
     if (filterType !== 'all') {
       filtered = filtered.filter(lead => lead.status === filterType);
     }
-    
+
     // Apply sort
     filtered.sort((a, b) => {
       switch (sortType) {
@@ -147,7 +148,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           return 0;
       }
     });
-    
+
     return filtered;
   }, [leads, filterType, sortType]);
 
@@ -160,8 +161,11 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
     try {
       setError(null);
+      // Get cached expo push token (generated on app startup)
+      const expoToken = await getCachedExpoPushToken();
+
       // Use the new profile API that returns everything
-      const response = await getProfileWithLeads(userData.userid, userData.token);
+      const response = await getProfileWithLeads(userData.userid, userData.token, expoToken || undefined);
 
       if (response.status === 'success') {
         // Set leads from view_leads
@@ -170,17 +174,17 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         } else {
           setLeads([]);
         }
-        
+
         // Set slider items
         if (response.slider) {
           setSliderItems(response.slider);
         }
-        
+
         // Set leads summary
         if (response.leads_summary) {
           setLeadsSummary(response.leads_summary);
         }
-        
+
         // Set profile name
         if (response.userdata?.username) {
           setProfileName(response.userdata.username);
@@ -235,7 +239,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
     Linking.openURL(`whatsapp://send?phone=91${mobile}`);
   };
 
-  const renderItem = ({item, index}: {item: Lead; index: number}) => {
+  const renderItem = ({ item, index }: { item: Lead; index: number }) => {
     const getInitials = (name: string) => {
       return name
         .split(' ')
@@ -289,14 +293,14 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
       if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
       if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-      
+
       return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
     };
 
     return (
       <TouchableOpacity
         style={styles.leadCard}
-        onPress={() => navigation.navigate('LeadDetails', {lead: item})}
+        onPress={() => navigation.navigate('LeadDetails', { lead: item })}
         activeOpacity={0.7}>
         {/* Blur Background */}
         <BlurView
@@ -305,7 +309,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           blurAmount={10}
           reducedTransparencyFallbackColor="rgba(40, 40, 40, 0.95)"
         />
-        
+
         {/* Top Section */}
         <View style={styles.leadCardTop}>
           {/* Left: Avatar and Name */}
@@ -313,8 +317,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
             <View style={styles.leadAvatar}>
               <LinearGradient
                 colors={['#D4AF37', '#AA8C2C']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.avatarGradient}>
                 <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
               </LinearGradient>
@@ -332,10 +336,10 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
               <View
                 style={[
                   styles.statusDot,
-                  {backgroundColor: getStatusColor(item.status)},
+                  { backgroundColor: getStatusColor(item.status) },
                 ]}
               />
-              <Text style={[styles.leadStatus, {color: getStatusColor(item.status)}]}>
+              <Text style={[styles.leadStatus, { color: getStatusColor(item.status) }]}>
                 {getStatusLabel(item.status)}
               </Text>
             </View>
@@ -371,15 +375,15 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         <View style={styles.emptyBackgroundGradient1} />
         <View style={styles.emptyBackgroundGradient2} />
         <View style={styles.emptyBackgroundGradient3} />
-        
+
         {/* Large central icon with modern design */}
         <View style={styles.emptyMainContent}>
           <View style={styles.emptyIconContainer}>
             {/* Main icon circle */}
             <LinearGradient
               colors={['#F5D78E', '#D4AF37']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.emptyIconCircle}>
               <Icon name="inbox" size={70} color="#1a1a1a" />
             </LinearGradient>
@@ -411,7 +415,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         {/* Header Background Extension - matches header solid background */}
         <View style={styles.headerBackgroundExtension}>
           {/* Welcome Section */}
-          <View style={[styles.welcomeSection, {paddingTop: insets.top + 10}]}>
+          <View style={[styles.welcomeSection, { paddingTop: insets.top + 10 }]}>
             <Text style={styles.welcomeText}>Welcome back</Text>
             <Text style={styles.welcomeName}>Hi, {profileName || userData?.username || 'User'} 👋</Text>
           </View>
@@ -432,7 +436,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         {leadsSummary.length > 0 && (
           <View style={styles.leadsSummaryContainer}>
             <Text style={styles.leadsSummaryTitle}>Leads Overview</Text>
-            
+
             <View style={styles.summaryCardsRow}>
               {/* New Leads Card */}
               <View style={[styles.summaryCard, styles.summaryCardGreen]}>
@@ -559,8 +563,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         activeOpacity={0.8}>
         <LinearGradient
           colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.floatingButtonGradient}>
           <Icon name="add" size={20} color="#000" />
           <Text style={styles.floatingButtonText}>Add Lead</Text>
@@ -622,7 +626,7 @@ const styles = StyleSheet.create({
   },
   addLeadButton: {
     shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
@@ -714,7 +718,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(25, 25, 30, 0.95)',
     shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 10},
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 10,
@@ -742,7 +746,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: {width: 0, height: 2},
+    textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },
   carouselSubtitle: {
@@ -751,7 +755,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   // Header Background Extension - transparent to show background
@@ -847,7 +851,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212, 175, 55, 0.2)',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
@@ -962,7 +966,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 1.5,
   },
-  
+
   // Card header with gradient
   cardHeaderGradient: {
     paddingHorizontal: 18,
@@ -1039,7 +1043,7 @@ const styles = StyleSheet.create({
   statusTextConverted: {
     color: '#2196F3',
   },
-  
+
   // Rank badge
   rankBadgeContainer: {
     marginLeft: 12,
@@ -1056,7 +1060,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#D4AF37',
   },
-  
+
   // Card body
   cardBody: {
     paddingHorizontal: 18,
@@ -1101,7 +1105,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontWeight: '500',
   },
-  
+
   // Quick action buttons
   quickActions: {
     flexDirection: 'row',
@@ -1115,7 +1119,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#4CAF50',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
@@ -1124,7 +1128,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#25D366',
     shadowColor: '#25D366',
   },
-  
+
   // Divider
   dividerContainer: {
     height: 1,
@@ -1142,7 +1146,7 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(212, 175, 55, 0.15)',
   },
-  
+
   // Card footer
   cardFooter: {
     flexDirection: 'row',
@@ -1179,7 +1183,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 4,
   },
-  
+
   // Stats Cards
   statsContainer: {
     marginBottom: 16,
@@ -1238,7 +1242,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
- 
+
 
   // Recent Leads Heading
   recentLeadsContainer: {
@@ -1275,7 +1279,7 @@ const styles = StyleSheet.create({
     minHeight: 600,
     position: 'relative',
   },
-  
+
   // Background gradients
   emptyBackgroundGradient1: {
     position: 'absolute',
@@ -1347,7 +1351,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 12},
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,
     shadowRadius: 24,
     elevation: 12,
@@ -1410,7 +1414,7 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 20,
     shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
@@ -1436,7 +1440,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     shadowColor: '#D4AF37',
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
     shadowRadius: 16,
     elevation: 10,

@@ -1,7 +1,8 @@
-import React, {createContext, useContext, useState, useEffect} from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {UserData, getProfile} from '../services/api';
-import {subscribeToLogoutRequired} from '../utils/authEventEmitter';
+import { UserData, getProfile } from '../services/api';
+import { subscribeToLogoutRequired } from '../utils/authEventEmitter';
+import { registerForPushNotificationsAsync, getCachedExpoPushToken } from '../services/notificationService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -13,12 +14,21 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
+
+  // Generate expo push token on app startup (runs once)
+  useEffect(() => {
+    const initializePushToken = async () => {
+      console.log('Initializing expo push token on app startup...');
+      await registerForPushNotificationsAsync();
+    };
+    initializePushToken();
+  }, []);
 
   useEffect(() => {
     checkAuthState();
@@ -29,7 +39,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
   useEffect(() => {
     const unsubscribe = subscribeToLogoutRequired(async (data) => {
       console.log('Received logout required event:', data.message);
-      
+
       // Clear auth state - dialog is shown by SessionExpiredHandler
       try {
         await AsyncStorage.removeItem('authToken');
@@ -48,15 +58,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
     try {
       const authToken = await AsyncStorage.getItem('authToken');
       const storedUserData = await AsyncStorage.getItem('userData');
-      
+
       if (authToken && storedUserData) {
         const parsedUserData = JSON.parse(storedUserData);
         setIsAuthenticated(true);
-        
+
         // Fetch fresh profile data from API to get latest username
         try {
-          const response = await getProfile(parsedUserData.userid, parsedUserData.token);
-          
+          // Get cached expo push token (generated on startup)
+          const expoToken = await getCachedExpoPushToken();
+
+          const response = await getProfile(parsedUserData.userid, parsedUserData.token, expoToken || undefined);
+
           if (response.status === 'success' && response.userdata) {
             // Update stored user data with fresh profile info
             const updatedUserData = {
@@ -110,7 +123,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
   };
 
   return (
-    <AuthContext.Provider value={{isAuthenticated, isLoading, userData, login, logout}}>
+    <AuthContext.Provider value={{ isAuthenticated, isLoading, userData, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

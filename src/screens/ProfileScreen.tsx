@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,25 +10,26 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
-import {BlurView} from '@react-native-community/blur';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useTheme} from '../theme/ThemeContext';
+import { BlurView } from '@react-native-community/blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {useScrollVisibility} from '../context/ScrollVisibilityContext';
-import {FallingRupees} from '../components/FallingRupee';
-import {useAuth} from '../context/AuthContext';
-import {getProfile, ProfileData} from '../services/api';
+import { useScrollVisibility } from '../context/ScrollVisibilityContext';
+import { FallingRupees } from '../components/FallingRupee';
+import { useAuth } from '../context/AuthContext';
+import { getProfile, ProfileData, updateProfile } from '../services/api';
+import { getCachedExpoPushToken } from '../services/notificationService';
 
 interface ProfileScreenProps {
   navigation: any;
 }
 
-export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
-  const {theme, isDark} = useTheme();
+export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
+  const { theme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const {handleScroll, headerTranslateY} = useScrollVisibility();
-  const {userData} = useAuth();
-  
+  const { handleScroll, headerTranslateY } = useScrollVisibility();
+  const { userData } = useAuth();
+
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +47,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
       try {
         setIsLoading(true);
         console.log('Fetching profile for userid:', userData.userid, 'token:', userData.token);
-        const response = await getProfile(userData.userid, userData.token);
+
+        // Get cached expo push token (generated on app startup)
+        const expoToken = await getCachedExpoPushToken();
+
+        const response = await getProfile(userData.userid, userData.token, expoToken || undefined);
         console.log('Profile API response:', JSON.stringify(response));
-        
+
         if (response.status === 'success' && response.status_code === 200) {
           // API returns data in 'userdata' field
           if (response.userdata) {
@@ -127,12 +132,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
         {/* Subtle overlay for better contrast */}
         <View style={styles.headerOverlay} />
         <FallingRupees count={12} />
-        <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-          Profile
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
+            Profile
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('RegisterDetails', {
+              isEditMode: true,
+              profileData: profileData
+            })}
+            style={styles.editButton}>
+            <Icon name="edit" size={16} color={theme.colors.primary} />
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, {paddingTop: insets.top + 100}]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 100 }]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}>
@@ -147,33 +163,33 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
                 {isLoading ? (
                   <ActivityIndicator size="large" color={theme.colors.primary} />
                 ) : error ? (
-                  <Text style={[styles.errorText, {color: theme.colors.error || '#FF6B6B'}]}>
+                  <Text style={[styles.errorText, { color: theme.colors.error || '#FF6B6B' }]}>
                     {error}
                   </Text>
                 ) : (
                   <>
-          <View style={styles.profileImageContainer}>
-            <View style={styles.initialsContainer}>
-              <Text style={styles.initialsText}>
-                {(profileData?.username || 'U')
-                  .split(' ')
-                  .map(word => word.charAt(0))
-                  .join('')
-                  .substring(0, 2)
-                  .toUpperCase()}
-              </Text>
-            </View>
-          </View>
-          <Text style={[styles.profileName, {color: theme.colors.text}]}>
-                        {profileData?.username || 'User'}
-          </Text>
-          <Text style={[styles.profilePhone, {color: theme.colors.textSecondary}]}>
-                        {formatPhoneNumber(profileData?.mobile || '')}
-          </Text>
+                    <View style={styles.profileImageContainer}>
+                      <View style={styles.initialsContainer}>
+                        <Text style={styles.initialsText}>
+                          {(profileData?.username || 'U')
+                            .split(' ')
+                            .map(word => word.charAt(0))
+                            .join('')
+                            .substring(0, 2)
+                            .toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.profileName, { color: theme.colors.text }]}>
+                      {profileData?.username || 'User'}
+                    </Text>
+                    <Text style={[styles.profilePhone, { color: theme.colors.textSecondary }]}>
+                      {formatPhoneNumber(profileData?.mobile || '')}
+                    </Text>
                     {profileData?.wallet && (
                       <View style={styles.walletContainer}>
                         <Icon name="account-balance-wallet" size={20} color={theme.colors.primary} />
-                        <Text style={[styles.walletText, {color: theme.colors.primary}]}>
+                        <Text style={[styles.walletText, { color: theme.colors.primary }]}>
                           ₹{profileData.wallet}
                         </Text>
                       </View>
@@ -195,14 +211,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
               <View style={styles.profileCardGlassInnerBorder} />
               <View style={styles.detailsContent}>
                 <View style={styles.detailsHeader}>
-                  <Text style={[styles.detailsTitle, {color: theme.colors.text}]}>Account Details</Text>
-                  <TouchableOpacity 
+                  <Text style={[styles.detailsTitle, { color: theme.colors.text }]}>Account Details</Text>
+                  <TouchableOpacity
                     onPress={() => setShowSensitiveData(!showSensitiveData)}
                     style={styles.visibilityButton}>
-                    <Icon 
-                      name={showSensitiveData ? 'visibility' : 'visibility-off'} 
-                      size={22} 
-                      color={theme.colors.primary} 
+                    <Icon
+                      name={showSensitiveData ? 'visibility' : 'visibility-off'}
+                      size={22}
+                      color={theme.colors.primary}
                     />
                   </TouchableOpacity>
                 </View>
@@ -214,8 +230,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
                       <Icon name="location-on" size={18} color={theme.colors.primary} />
                     </View>
                     <View style={styles.detailTextContainer}>
-                      <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>Address</Text>
-                      <Text style={[styles.detailValue, {color: theme.colors.text}]}>
+                      <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Address</Text>
+                      <Text style={[styles.detailValue, { color: theme.colors.text }]}>
                         {showSensitiveData ? profileData.address : maskAddress(profileData.address)}
                       </Text>
                     </View>
@@ -229,8 +245,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
                       <Icon name="account-balance" size={18} color={theme.colors.primary} />
                     </View>
                     <View style={styles.detailTextContainer}>
-                      <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>Account Number</Text>
-                      <Text style={[styles.detailValue, {color: theme.colors.text}]}>
+                      <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>Account Number</Text>
+                      <Text style={[styles.detailValue, { color: theme.colors.text }]}>
                         {showSensitiveData ? profileData.ac_no : maskAccountNumber(profileData.ac_no)}
                       </Text>
                     </View>
@@ -244,8 +260,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
                       <Icon name="code" size={18} color={theme.colors.primary} />
                     </View>
                     <View style={styles.detailTextContainer}>
-                      <Text style={[styles.detailLabel, {color: theme.colors.textSecondary}]}>IFSC Code</Text>
-                      <Text style={[styles.detailValue, {color: theme.colors.text}]}>
+                      <Text style={[styles.detailLabel, { color: theme.colors.textSecondary }]}>IFSC Code</Text>
+                      <Text style={[styles.detailValue, { color: theme.colors.text }]}>
                         {showSensitiveData ? profileData.ifsc_code : maskIFSC(profileData.ifsc_code)}
                       </Text>
                     </View>
@@ -262,19 +278,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({navigation}) => {
             <View style={styles.menuItemGlassFrostLayer} />
             <View style={styles.menuItemGlassHighlight} />
             <View style={styles.menuItemGlassInnerBorder} />
-        <TouchableOpacity
+            <TouchableOpacity
               style={styles.menuItemGlassContent}
-          onPress={() => navigation.navigate('Settings')}>
-          <View style={styles.menuItemLeft}>
-            <View style={[styles.iconContainer, {backgroundColor: 'rgba(212, 175, 55, 0.15)'}]}>
-              <Icon name="settings" size={20} color={theme.colors.primary} />
-            </View>
-            <Text style={[styles.menuItemText, {color: theme.colors.text}]}>
-              Settings
-            </Text>
-          </View>
-          <Icon name="chevron-right" size={24} color={theme.colors.textSecondary} />
-        </TouchableOpacity>
+              onPress={() => navigation.navigate('Settings')}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.iconContainer, { backgroundColor: 'rgba(212, 175, 55, 0.15)' }]}>
+                  <Icon name="settings" size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>
+                  Settings
+                </Text>
+              </View>
+              <Icon name="chevron-right" size={24} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -299,6 +315,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    height: 120,
     paddingHorizontal: 24,
     paddingBottom: 16,
     zIndex: 100,
@@ -306,11 +323,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(212, 175, 55, 0.2)',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 10,
+  },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    letterSpacing: -1,
-    marginTop: 10,
+    letterSpacing: -0.5,
   },
   scrollContent: {
     paddingBottom: 100,
@@ -576,6 +598,22 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.5)',
+    gap: 6,
+  },
+  editButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#D4AF37',
   },
 });
 

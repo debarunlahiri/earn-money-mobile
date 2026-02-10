@@ -2,6 +2,10 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import {Platform, Alert} from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Storage key for expo push token
+const EXPO_TOKEN_STORAGE_KEY = 'expo_push_token';
 
 // Configure how notifications should be handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -11,6 +15,33 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
+
+/**
+ * Get the cached expo push token from AsyncStorage
+ * @returns Promise<string | null> - Returns the cached token or null if not found
+ */
+export async function getCachedExpoPushToken(): Promise<string | null> {
+  try {
+    const token = await AsyncStorage.getItem(EXPO_TOKEN_STORAGE_KEY);
+    return token;
+  } catch (error) {
+    console.error('Error getting cached push token:', error);
+    return null;
+  }
+}
+
+/**
+ * Store the expo push token in AsyncStorage
+ * @param token - The expo push token to store
+ */
+async function storeExpoPushToken(token: string): Promise<void> {
+  try {
+    await AsyncStorage.setItem(EXPO_TOKEN_STORAGE_KEY, token);
+    console.log('Expo push token stored successfully');
+  } catch (error) {
+    console.error('Error storing push token:', error);
+  }
+}
 
 /**
  * Register for push notifications and get the Expo push token
@@ -99,6 +130,11 @@ export async function registerForPushNotificationsAsync(): Promise<
       ).data;
 
       console.log('Expo Push Token:', token);
+      
+      // Store token in AsyncStorage for later use
+      if (token) {
+        await storeExpoPushToken(token);
+      }
     } catch (error) {
       console.error('Error getting push token:', error);
       Alert.alert(
