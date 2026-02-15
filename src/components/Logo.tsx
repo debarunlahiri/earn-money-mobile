@@ -9,9 +9,10 @@ interface LogoProps {
   style?: any;
   showFallbackOnError?: boolean;
   preferLocal?: boolean;
+  resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
 }
 
-export const Logo: React.FC<LogoProps> = ({size = 60, style, showFallbackOnError = true, preferLocal = false}) => {
+export const Logo: React.FC<LogoProps> = ({size = 60, style, showFallbackOnError = true, preferLocal = false, resizeMode = 'contain'}) => {
   const {logoUrl, isLoading, error} = useLogo();
   const {theme} = useTheme();
 
@@ -32,7 +33,7 @@ export const Logo: React.FC<LogoProps> = ({size = 60, style, showFallbackOnError
       <Image
         source={localLogo}
         style={[styles.image, {width: size, height: size}, style]}
-        resizeMode="contain"
+        resizeMode={resizeMode}
         onError={(e) => {
           console.log('Local logo image load error:', e.nativeEvent.error);
         }}
@@ -45,7 +46,7 @@ export const Logo: React.FC<LogoProps> = ({size = 60, style, showFallbackOnError
     <Image
       source={{uri: logoUrl}}
       style={[styles.image, {width: size, height: size}, style]}
-      resizeMode="contain"
+      resizeMode={resizeMode}
       onError={(e) => {
         console.log('API logo image load error:', e.nativeEvent.error);
       }}

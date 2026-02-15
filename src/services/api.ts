@@ -175,6 +175,7 @@ export interface ProfileData {
   mobile: string;
   ac_no: string;
   ifsc_code: string;
+  upi_id?: string;
   address: string;
   userid: number;
   token: number;
@@ -717,6 +718,34 @@ export const getProfileWithLeads = async (
 export const getPropertyTypes = async (): Promise<PropertyTypesResponse> => {
   const formData = new FormData();
   formData.append('action', 'property_type');
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Fetches property search for options from API
+ */
+export const getPropertySearchFor = async (propertyType?: string): Promise<PropertySearchForResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'property_search_for');
+  if (propertyType) {
+    formData.append('property_type', propertyType);
+  }
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);

@@ -15,6 +15,7 @@ import {SellBuySelectionScreen} from '../screens/SellBuySelectionScreen';
 import {PropertyFormScreen} from '../screens/PropertyFormScreen';
 import {AddNewEnquiryScreen} from '../screens/AddNewEnquiryScreen';
 import {ProfileScreen} from '../screens/ProfileScreen';
+import {EditProfileScreen} from '../screens/EditProfileScreen';
 import {SettingsScreen} from '../screens/SettingsScreen';
 import {WalletScreen} from '../screens/WalletScreen';
 import {WithdrawMoneyScreen} from '../screens/WithdrawMoneyScreen';
@@ -50,6 +51,8 @@ export const AppNavigator = () => {
 
   // Check if profile is incomplete using is_new flag from API
   const isProfileIncomplete = isAuthenticated && userData && userData.is_new === 'yes';
+  
+  console.log('[Navigator] isAuthenticated:', isAuthenticated, '| is_new:', userData?.is_new, '| isProfileIncomplete:', isProfileIncomplete);
 
   return (
     <NavigationContainer>
@@ -109,6 +112,7 @@ export const AppNavigator = () => {
             <Stack.Screen name="PropertyForm" component={PropertyFormScreen} />
             <Stack.Screen name="AddNewEnquiry" component={AddNewEnquiryScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
             <Stack.Screen name="WithdrawMoney" component={WithdrawMoneyScreen} />

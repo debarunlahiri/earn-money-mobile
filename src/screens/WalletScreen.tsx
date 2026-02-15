@@ -62,7 +62,7 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({navigation}) => {
 
       // Handle payment history
       if (historyResponse.status === 'success' && historyResponse.status_code === 200) {
-        if (historyResponse.userdata) {
+        if (Array.isArray(historyResponse.userdata) && historyResponse.userdata.length > 0 && !Array.isArray(historyResponse.userdata[0])) {
           setTransactions(historyResponse.userdata);
         } else {
           setTransactions([]);
@@ -90,9 +90,11 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({navigation}) => {
   };
 
   const renderTransactionItem = (item: PaymentHistoryItem, index: number) => {
+    if (!item || !item.status || !item.title) return null;
     const isCredit = item.title === 'credit';
     const isPending = item.status === 'pending';
     const amountColor = isPending ? '#FFA726' : (isCredit ? '#4CAF50' : '#FF5252');
+    const statusLabel = item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : '';
 
     return (
       <View key={index} style={styles.transactionItem}>
@@ -105,7 +107,7 @@ export const WalletScreen: React.FC<WalletScreenProps> = ({navigation}) => {
         </View>
         <View style={styles.transactionInfo}>
           <Text style={[styles.transactionDescription, {color: theme.colors.text}]}>
-            {isCredit ? 'Credit' : 'Debit'} - {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            {isCredit ? 'Credit' : 'Debit'} - {statusLabel}
           </Text>
           <View style={styles.transactionDateTime}>
             <Icon name="calendar-today" size={10} color={theme.colors.textSecondary} />

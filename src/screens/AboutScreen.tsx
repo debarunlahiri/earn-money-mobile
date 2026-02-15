@@ -14,6 +14,10 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {FallingRupees} from '../components/FallingRupee';
+import {Logo} from '../components/Logo';
+import appJson from '../../app.json';
+
+const APP_NAME = appJson.expo.name;
 
 interface AboutScreenProps {
   navigation: any;
@@ -24,19 +28,19 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({navigation}) => {
   const insets = useSafeAreaInsets();
 
   const handleEmailPress = () => {
-    Linking.openURL('mailto:support@earnmoney.com');
+    Linking.openURL('mailto:support@propertyinder.com');
   };
 
   const handleWebsitePress = () => {
-    Linking.openURL('https://www.earnmoney.com');
+    Linking.openURL('https://www.propertyinder.com');
   };
 
   const handlePrivacyPress = () => {
-    Linking.openURL('https://www.earnmoney.com/privacy');
+    Linking.openURL('https://www.propertyinder.com/privacy');
   };
 
   const handleTermsPress = () => {
-    Linking.openURL('https://www.earnmoney.com/terms');
+    Linking.openURL('https://www.propertyinder.com/terms');
   };
 
   return (
@@ -91,10 +95,10 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({navigation}) => {
             <View style={styles.glassInnerBorder} />
             <View style={styles.cardContent}>
               <View style={styles.appIconContainer}>
-                <Icon name="account-balance-wallet" size={60} color={theme.colors.primary} />
+                <Logo size={80} style={{borderRadius: 20}} resizeMode="cover" />
               </View>
               <Text style={[styles.appName, {color: theme.colors.text}]}>
-                Earn Money
+                {APP_NAME}
               </Text>
               <Text style={[styles.version, {color: theme.colors.textSecondary}]}>
                 Version 1.0.0
@@ -125,7 +129,7 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({navigation}) => {
                     Company
                   </Text>
                   <Text style={[styles.infoValue, {color: theme.colors.text}]}>
-                    Earn Money Pvt. Ltd.
+                    {APP_NAME} Pvt. Ltd.
                   </Text>
                 </View>
               </View>
@@ -198,7 +202,7 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({navigation}) => {
 
         {/* Copyright */}
         <Text style={[styles.copyright, {color: theme.colors.textSecondary}]}>
-          © 2024 Earn Money Pvt. Ltd.{'\n'}All rights reserved.
+          © 2024 {APP_NAME} Pvt. Ltd.{'\n'}All rights reserved.
         </Text>
       </ScrollView>
     </ImageBackground>
@@ -330,6 +334,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     marginBottom: 8,
+    textAlign: 'center',
   },
   version: {
     fontSize: 14,

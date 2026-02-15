@@ -103,7 +103,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       await AsyncStorage.setItem('authToken', 'authenticated');
       if (userDataParam) {
         await AsyncStorage.setItem('userData', JSON.stringify(userDataParam));
-        setUserData(userDataParam);
+        console.log('[AuthContext] login called, is_new:', userDataParam.is_new);
+        setUserData({...userDataParam});
       }
       setIsAuthenticated(true);
     } catch (error) {

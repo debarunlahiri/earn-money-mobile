@@ -666,19 +666,21 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           });
           
           if (response.status === 'success' || response.status_code === 200) {
-            // Update userData with username, mobile, and set is_new to 'no' to mark profile as complete
-            // This will trigger the navigator to show the Home screen
+            // Build updated user data with is_new explicitly set to 'no'
             const updatedUserData = {
-              ...(userData || {}),
+              userid: response.userdata?.userid || userData?.userid || 0,
+              token: response.userdata?.token || userData?.token || 0,
               username: userName,
               mobile: mobileNumber,
-              is_new: 'no', // Mark profile as complete
-              // Also update token if returned from API
-              ...(response.userdata?.token && { token: response.userdata.token }),
-              ...(response.userdata?.userid && { userid: response.userdata.userid }),
+              is_new: 'no',
             };
+            console.log('Registration success, calling login with:', JSON.stringify(updatedUserData));
             await login(updatedUserData);
-            // Auth state change will automatically navigate to Home screen
+            // Navigate to Home explicitly since the isProfileIncomplete stack includes Home
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Home' }],
+            });
           } else {
             showToast(response.message || 'Registration failed. Please try again.', 'error');
           }

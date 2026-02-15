@@ -137,8 +137,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             Profile
           </Text>
           <TouchableOpacity
-            onPress={() => navigation.navigate('RegisterDetails', {
-              isEditMode: true,
+            onPress={() => navigation.navigate('EditProfile', {
               profileData: profileData
             })}
             style={styles.editButton}>
@@ -315,7 +314,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
     paddingHorizontal: 24,
     paddingBottom: 16,
     zIndex: 100,
@@ -327,12 +325,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
+    marginTop: 10,
     zIndex: 10,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    letterSpacing: -0.5,
+    letterSpacing: -1,
+    flex: 1,
   },
   scrollContent: {
     paddingBottom: 100,
