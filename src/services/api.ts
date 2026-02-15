@@ -742,7 +742,7 @@ export const getPropertyTypes = async (): Promise<PropertyTypesResponse> => {
  */
 export const getPropertySearchFor = async (propertyType?: string): Promise<PropertySearchForResponse> => {
   const formData = new FormData();
-  formData.append('action', 'property_search_for');
+  formData.append('action', 'property_for');
   if (propertyType) {
     formData.append('property_type', propertyType);
   }

@@ -761,44 +761,46 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                   borderWidth: 1,
                 },
               ]}>
-              {propertyTypesLoading ? (
-                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                </View>
-              ) : propertyTypes.length > 0 ? (
-                propertyTypes.map(option => (
-                  <EnhancedTouchable
-                    key={option}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.pickerItem,
-                      {
-                        backgroundColor: theme.colors.surface,
-                        borderBottomColor: theme.colors.border,
-                      },
-                    ]}
-                    hitSlopSize="small"
-                    onPress={() => handlePropertyTypeChange(option)}>
-                    <Text
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                {propertyTypesLoading ? (
+                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                  </View>
+                ) : propertyTypes.length > 0 ? (
+                  propertyTypes.map(option => (
+                    <EnhancedTouchable
+                      key={option}
+                      activeOpacity={0.7}
                       style={[
-                        styles.pickerText,
+                        styles.pickerItem,
                         {
-                          color: theme.colors.text,
-                          fontWeight:
-                            propertyType === option ? '600' : '400',
+                          backgroundColor: theme.colors.surface,
+                          borderBottomColor: theme.colors.border,
                         },
-                      ]}>
-                      {option}
+                      ]}
+                      hitSlopSize="small"
+                      onPress={() => handlePropertyTypeChange(option)}>
+                      <Text
+                        style={[
+                          styles.pickerText,
+                          {
+                            color: theme.colors.text,
+                            fontWeight:
+                              propertyType === option ? '600' : '400',
+                          },
+                        ]}>
+                        {option}
+                      </Text>
+                    </EnhancedTouchable>
+                  ))
+                ) : (
+                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                    <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
+                      No property types available
                     </Text>
-                  </EnhancedTouchable>
-                ))
-              ) : (
-                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                  <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
-                    No property types available
-                  </Text>
-                </View>
-              )}
+                  </View>
+                )}
+              </ScrollView>
             </View>
           )}
 
@@ -842,50 +844,52 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                   borderWidth: 1,
                 },
               ]}>
-              {propertySearchForLoading ? (
-                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                </View>
-              ) : propertySearchForOptions.length > 0 ? (
-                propertySearchForOptions.map(option => (
-                  <EnhancedTouchable
-                    key={option}
-                    activeOpacity={0.7}
-                    style={[
-                      styles.pickerItem,
-                      {
-                        backgroundColor: theme.colors.surface,
-                        borderBottomColor: theme.colors.border,
-                      },
-                    ]}
-                    hitSlopSize="small"
-                    onPress={() => handlePropertySearchForChange(option)}>
-                    <Text
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                {propertySearchForLoading ? (
+                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
+                  </View>
+                ) : propertySearchForOptions.length > 0 ? (
+                  propertySearchForOptions.map(option => (
+                    <EnhancedTouchable
+                      key={option}
+                      activeOpacity={0.7}
                       style={[
-                        styles.pickerText,
+                        styles.pickerItem,
                         {
-                          color: theme.colors.text,
-                          fontWeight:
-                            propertySearchFor === option ? '600' : '400',
+                          backgroundColor: theme.colors.surface,
+                          borderBottomColor: theme.colors.border,
                         },
-                      ]}>
-                      {option}
+                      ]}
+                      hitSlopSize="small"
+                      onPress={() => handlePropertySearchForChange(option)}>
+                      <Text
+                        style={[
+                          styles.pickerText,
+                          {
+                            color: theme.colors.text,
+                            fontWeight:
+                              propertySearchFor === option ? '600' : '400',
+                          },
+                        ]}>
+                        {option}
+                      </Text>
+                    </EnhancedTouchable>
+                  ))
+                ) : propertyType ? (
+                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                    <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
+                      No search options available
                     </Text>
-                  </EnhancedTouchable>
-                ))
-              ) : propertyType ? (
-                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                  <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
-                    No search options available
-                  </Text>
-                </View>
-              ) : (
-                <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                  <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
-                    Select property type first
-                  </Text>
-                </View>
-              )}
+                  </View>
+                ) : (
+                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                    <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
+                      Select property type first
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
             </View>
           )}
 
