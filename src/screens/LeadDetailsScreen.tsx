@@ -141,6 +141,29 @@ export const LeadDetailsScreen: React.FC<LeadDetailsScreenProps> = ({
           <Text style={styles.requirementText}>{lead.requirement}</Text>
         </View>
 
+        {/* <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Icon name="bolt" size={24} color="#D4AF37" />
+            <Text style={styles.cardTitle}>Quick Actions</Text>
+          </View>
+
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.callButton]}
+              onPress={handleCall}>
+              <Icon name="call" size={18} color="#fff" />
+              <Text style={styles.actionButtonText}>Call</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.whatsappButton]}
+              onPress={handleWhatsApp}>
+              <Icon name="chat" size={18} color="#fff" />
+              <Text style={styles.actionButtonText}>WhatsApp</Text>
+            </TouchableOpacity>
+          </View>
+
+        </View> */}
+
 
       </ScrollView>
     </View>

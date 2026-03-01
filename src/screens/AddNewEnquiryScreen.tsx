@@ -26,6 +26,10 @@ import {INDIA_CITIES, getCitiesByState} from '../data/indiaCities';
 import {getSectorsByCity} from '../data/indiaSectors';
 import {useAuth} from '../context/AuthContext';
 import {addLead, getPropertyTypes, getPropertySearchFor} from '../services/api';
+import {
+  getFriendlyLocationErrorMessage,
+  getReliableCurrentLocation,
+} from '../utils/locationUtils';
 
 interface AddNewEnquiryScreenProps {
   navigation: any;
@@ -34,7 +38,7 @@ interface AddNewEnquiryScreenProps {
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const SLIDER_WIDTH = SCREEN_WIDTH - 80;
 const MIN_BUDGET = 0;
-const MAX_BUDGET = 100000000; // 10 Crores
+const MAX_BUDGET = 200000000; // 20 Crores
 
 export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   navigation,
@@ -50,7 +54,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [propertySearchFor, setPropertySearchFor] = useState('');
   const [propertySearchingIn, setPropertySearchingIn] = useState('');
   const [minBudget, setMinBudget] = useState(0);
-  const [maxBudget, setMaxBudget] = useState(100000000); // 10 Crores
+  const [maxBudget, setMaxBudget] = useState(200000000); // 20 Crores
   const [showPropertyTypePicker, setShowPropertyTypePicker] = useState(false);
   const [showPropertySearchForPicker, setShowPropertySearchForPicker] =
     useState(false);
@@ -193,87 +197,14 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     setLocationLoading(true);
     
     try {
-      // Check if location services are enabled first (important for Realme devices)
-      const isLocationEnabled = await Location.hasServicesEnabledAsync();
-      if (!isLocationEnabled) {
-        showToast('Please enable Location Services in your device settings.', 'warning');
-        setLocationLoading(false);
-        return;
-      }
-
-      // Request location permissions
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      
-      if (status !== 'granted') {
-        showToast('Location permission is required. Please enable location access in settings.', 'warning');
-        setLocationLoading(false);
-        return;
-      }
-
-      // Try to get location with timeout and fallback accuracy levels
-      // Realme devices often need lower accuracy or longer timeout
-      let location: Location.LocationObject | null = null;
-      const accuracyLevels = [
-        Location.Accuracy.Balanced,
-        Location.Accuracy.Low,
-        Location.Accuracy.Lowest,
-      ];
-
-      // First, try to get last known position as a quick fallback
-      try {
-        const lastKnown = await Location.getLastKnownPositionAsync();
-        if (lastKnown) {
-          console.log('Using last known position');
-          location = lastKnown;
-        }
-      } catch (err) {
-        console.log('No last known position available');
-      }
-
-      // If no last known position, try current position with different accuracy levels
-      if (!location) {
-        for (let i = 0; i < accuracyLevels.length; i++) {
-          try {
-            console.log(`Attempting to get location with accuracy: ${accuracyLevels[i]}`);
-            
-            // Use Promise.race to implement timeout (20 seconds)
-            location = await Promise.race<Location.LocationObject>([
-              Location.getCurrentPositionAsync({
-                accuracy: accuracyLevels[i],
-              }),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('Location timeout')), 20000)
-              ),
-            ]);
-
-            if (location) {
-              console.log('Location obtained successfully:', location.coords);
-              break; // Success, exit loop
-            }
-          } catch (err) {
-            console.log(`Failed with accuracy ${accuracyLevels[i]}:`, err);
-            if (i === accuracyLevels.length - 1) {
-              // Last attempt failed
-              showToast('Unable to get location. Please ensure GPS is enabled and try again, or enter address manually.', 'error');
-              setLocationLoading(false);
-              return;
-            }
-            // Continue to next accuracy level
-          }
-        }
-      }
-
-      if (!location) {
-        showToast('Location not available. Please enter address manually.', 'warning');
-        setLocationLoading(false);
-        return;
-      }
+      const {location, source} = await getReliableCurrentLocation();
 
       // Reverse geocode to get address
-      const [addressData] = await Location.reverseGeocodeAsync({
+      const geocodeResult = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       });
+      const addressData = geocodeResult?.[0];
 
       if (addressData) {
         console.log('Address data received:', addressData);
@@ -307,29 +238,24 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
           await handlePincodeChange(cleanPostalCode);
         }
 
-        showToast('Location fetched successfully!', 'success');
+        if (source === 'lastKnown') {
+          showToast(
+            'Using last known location. Move to open sky if current location looks incorrect.',
+            'info',
+          );
+        } else {
+          showToast('Location fetched successfully!', 'success');
+        }
       } else {
         showToast('Location found but address details unavailable. Please enter manually.', 'warning');
       }
     } catch (error: any) {
       console.error('Location error:', error);
-      
-      // Provide more specific error messages
-      let errorMessage = 'Failed to fetch current location.';
-      
-      if (error.message?.includes('timeout')) {
-        errorMessage = 'Location request timed out. Please ensure GPS is enabled and try again.';
-      } else if (error.message?.includes('denied')) {
-        errorMessage = 'Location permission denied. Please enable location access in settings.';
-      } else if (error.code === 'E_LOCATION_UNAVAILABLE') {
-        errorMessage = 'Location unavailable. Please check if GPS is enabled and you are not in airplane mode.';
-      }
-      
-      showToast(errorMessage, 'error');
+      showToast(getFriendlyLocationErrorMessage(error), 'error');
     } finally {
       setLocationLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   // Get sector name from id
   const getSectorName = (sectorId: string) => {
@@ -623,6 +549,9 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
         leadmobile: mobileNumber.trim(),
         address: propertySearchingIn.trim(),
         requirement: requirementDetails,
+        property_for: propertySearchFor.trim().toLowerCase(),
+        property_type: propertyType.trim(),
+        budget: maxBudget.toString(),
       });
 
       if (response.status === 'success') {

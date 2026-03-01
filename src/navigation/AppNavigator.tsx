@@ -1,6 +1,9 @@
-import React from 'react';
-import {View, ActivityIndicator} from 'react-native';
-import {NavigationContainer} from '@react-navigation/native';
+import React, {useMemo} from 'react';
+import {View, ActivityIndicator, Platform} from 'react-native';
+import {
+  NavigationContainer,
+  DefaultTheme as NavigationDefaultTheme,
+} from '@react-navigation/native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import {useAuth} from '../context/AuthContext';
 import {useTheme} from '../theme/ThemeContext';
@@ -23,6 +26,8 @@ import {TransactionHistoryScreen} from '../screens/TransactionHistoryScreen';
 import {MyLeadsScreen} from '../screens/MyLeadsScreen';
 import {AllLeadsScreen} from '../screens/AllLeadsScreen';
 import {LeadDetailsScreen} from '../screens/LeadDetailsScreen';
+import {ForwardLeadScreen} from '../screens/ForwardLeadScreen';
+import {ForwardLeadDetailsScreen} from '../screens/ForwardLeadDetailsScreen';
 import {SupportChatScreen} from '../screens/SupportChatScreen';
 import {AboutScreen} from '../screens/AboutScreen';
 import {NotificationScreen} from '../screens/NotificationScreen';
@@ -34,6 +39,22 @@ const Stack = createNativeStackNavigator();
 export const AppNavigator = () => {
   const {isAuthenticated, isLoading, userData} = useAuth();
   const {theme} = useTheme();
+  const navigationTheme = useMemo(
+    () => ({
+      ...NavigationDefaultTheme,
+      dark: true,
+      colors: {
+        ...NavigationDefaultTheme.colors,
+        primary: theme.colors.primary,
+        background: theme.colors.background,
+        card: theme.colors.background,
+        text: theme.colors.text,
+        border: theme.colors.border,
+        notification: theme.colors.primary,
+      },
+    }),
+    [theme.colors.background, theme.colors.border, theme.colors.primary, theme.colors.text],
+  );
 
   if (isLoading) {
     return (
@@ -55,32 +76,23 @@ export const AppNavigator = () => {
   console.log('[Navigator] isAuthenticated:', isAuthenticated, '| is_new:', userData?.is_new, '| isProfileIncomplete:', isProfileIncomplete);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          animation: 'slide_from_right',
-          animationDuration: 250,
+          animation: Platform.OS === 'android' ? 'none' : 'slide_from_right',
           gestureEnabled: true,
           gestureDirection: 'horizontal',
+          freezeOnBlur: true,
+          contentStyle: {
+            backgroundColor: theme.colors.background,
+          },
         }}>
         {!isAuthenticated ? (
           // Auth Stack - shown when not logged in
           <>
-            <Stack.Screen
-              name="Login"
-              component={LoginScreen}
-              options={{
-                contentStyle: {backgroundColor: 'transparent'},
-              }}
-            />
-            <Stack.Screen
-              name="Register"
-              component={RegisterScreen}
-              options={{
-                contentStyle: {backgroundColor: 'transparent'},
-              }}
-            />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen
               name="OTPVerification"
               component={OTPVerificationScreen}
@@ -120,6 +132,8 @@ export const AppNavigator = () => {
             <Stack.Screen name="MyLeads" component={MyLeadsScreen} />
             <Stack.Screen name="AllLeads" component={AllLeadsScreen} />
             <Stack.Screen name="LeadDetails" component={LeadDetailsScreen} />
+            <Stack.Screen name="ForwardLead" component={ForwardLeadScreen} />
+            <Stack.Screen name="ForwardLeadDetails" component={ForwardLeadDetailsScreen} />
             <Stack.Screen name="SupportChat" component={SupportChatScreen} />
             <Stack.Screen name="About" component={AboutScreen} />
             <Stack.Screen name="Notifications" component={NotificationScreen} />

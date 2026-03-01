@@ -8,7 +8,7 @@ import {MyLeadsScreen} from './MyLeadsScreen';
 import {ProfileScreen} from './ProfileScreen';
 import {WalletScreen} from './WalletScreen';
 import {NotificationScreen} from './NotificationScreen';
-import {FAB} from '../components/FAB';
+import {ForwardLeadsScreen} from './ForwardLeadsScreen';
 import {AnimatedTabBar} from '../components/AnimatedTabBar';
 import {useAuth} from '../context/AuthContext';
 import {getUnreadNotificationCount} from '../services/api';
@@ -55,8 +55,20 @@ const NotificationTabContent = ({
   );
 };
 
+const ForwardLeadsTabContent = ({
+  navigation,
+}: {
+  navigation: any;
+}) => {
+  return (
+    <View style={styles.container}>
+      <ForwardLeadsScreen navigation={navigation} />
+    </View>
+  );
+};
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
-  const {theme, isDark} = useTheme();
+  const {theme} = useTheme();
   const {userData} = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -130,6 +142,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
           }}>
           {() => (
             <HomeTabContent
+              navigation={navigation}
+            />
+          )}
+        </Tab.Screen>
+        <Tab.Screen
+          name="ForwardLeadsTab"
+          options={{
+            tabBarLabel: 'Forwards',
+            tabBarIcon: ({color, size}) => (
+              <Icon name="forward" size={size} color={color} />
+            ),
+          }}>
+          {() => (
+            <ForwardLeadsTabContent
               navigation={navigation}
             />
           )}

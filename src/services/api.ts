@@ -242,6 +242,9 @@ export const addLead = async (params: {
   leadmobile: string;
   address: string;
   requirement: string;
+  property_for?: string;
+  property_type?: string;
+  budget?: string | number;
 }): Promise<AddLeadResponse> => {
   const formData = new FormData();
   formData.append('action', 'add_lead');
@@ -251,6 +254,15 @@ export const addLead = async (params: {
   formData.append('leadmobile', params.leadmobile);
   formData.append('address', params.address);
   formData.append('requirement', params.requirement);
+  if (params.property_for) {
+    formData.append('property_for', params.property_for);
+  }
+  if (params.property_type) {
+    formData.append('property_type', params.property_type);
+  }
+  if (params.budget !== undefined && params.budget !== null) {
+    formData.append('budget', params.budget.toString());
+  }
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);
@@ -311,6 +323,207 @@ export const viewLeads = async (
     });
 
     const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+export interface AllUsersResponse {
+  status: string;
+  status_code: number;
+  message: Record<string, string> | string;
+}
+
+export interface AllStatusResponse {
+  status: string;
+  status_code: number;
+  message: string[] | string;
+}
+
+export interface ForwardLeadResponse {
+  status: string;
+  status_code: number;
+  message: string;
+}
+
+export interface ForwardLeadListItem {
+  status: string;
+  requirement: string;
+  date_time: string;
+  forward_to: string;
+  forward_by: string;
+  remark: string;
+  lead_id: string;
+}
+
+export interface ViewForwardLeadsResponse {
+  status: string;
+  status_code: number;
+  message: string;
+  total_leads?: number;
+  data?: Record<string, ForwardLeadListItem> | ForwardLeadListItem[];
+}
+
+/**
+ * Fetches all users for forward lead dropdown
+ */
+export const getAllUsers = async (
+  userid: string | number,
+  token: string | number,
+): Promise<AllUsersResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'all_user');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Fetches all statuses for forward lead dropdown
+ */
+export const getAllStatuses = async (
+  userid: string | number,
+  token: string | number,
+): Promise<AllStatusResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'all_status');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Submits lead forwarding details
+ */
+export const submitForwardLead = async (params: {
+  lead_id: string | number;
+  forward_to: string | number;
+  status: string;
+  remark: string;
+  user_id: string | number;
+  userid: string | number;
+  token: string | number;
+}): Promise<ForwardLeadResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'add_forward_lead');
+  formData.append('lead_id', params.lead_id.toString());
+  formData.append('forward_to', params.forward_to.toString());
+  formData.append('status', params.status);
+  formData.append('remark', params.remark);
+  formData.append('user_id', params.user_id.toString());
+  formData.append('userid', '10');
+  formData.append('token', '10');
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Fetches forwarded leads list
+ */
+export const viewForwardLeads = async (
+  userid: string | number,
+  token: string | number,
+): Promise<ViewForwardLeadsResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'view_forward_leads');
+  // formData.append('userid', userid.toString());
+  // formData.append('token', token.toString());
+
+  formData.append('userid', '10');
+  formData.append('token', '10');
+
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const responseText = await response.text();
+    let data: ViewForwardLeadsResponse;
+
+    if (!responseText || responseText.trim().length === 0) {
+      data = {
+        status: 'error',
+        status_code: response.status || 500,
+        message: 'Empty response from server',
+      };
+    } else {
+      try {
+        data = JSON.parse(responseText) as ViewForwardLeadsResponse;
+      } catch (parseError) {
+        logError(
+          API_BASE_URL,
+          new Error(
+            `Invalid JSON response for view_forward_leads: ${responseText.slice(0, 300)}`,
+          ),
+          Date.now() - startTime,
+        );
+        data = {
+          status: 'error',
+          status_code: response.status || 500,
+          message: 'Invalid response format from server',
+        };
+      }
+    }
+
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
     checkForAuthError(data);
     return data;

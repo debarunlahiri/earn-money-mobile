@@ -34,6 +34,10 @@ import {
 } from '../utils/phoneUtils';
 import {registerUser, updateProfile, ProfileData} from '../services/api';
 import * as Location from 'expo-location';
+import {
+  getFriendlyLocationErrorMessage,
+  getReliableCurrentLocation,
+} from '../utils/locationUtils';
 
 interface RegisterDetailsScreenProps {
   navigation: any;
@@ -266,141 +270,14 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
     setLocationLoading(true);
     
     try {
-      // Step 1: Check if location services are enabled (critical for Realme/ColorOS)
-      const isLocationEnabled = await Location.hasServicesEnabledAsync();
-      if (!isLocationEnabled) {
-        showToast('Please enable Location Services in Settings → Privacy → Location Services', 'warning');
-        setLocationLoading(false);
-        return;
-      }
+      const {location, source} = await getReliableCurrentLocation();
+      const geocodeResult = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      const addressData =
+        geocodeResult && geocodeResult.length > 0 ? geocodeResult[0] : null;
 
-      // Step 2: Check current permission status first
-      const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
-      
-      // Step 3: Request permissions if not granted
-      let finalStatus = currentStatus;
-      if (currentStatus !== 'granted') {
-        const { status: requestedStatus } = await Location.requestForegroundPermissionsAsync();
-        finalStatus = requestedStatus;
-      }
-      
-      if (finalStatus !== 'granted') {
-        showToast('Location permission denied. Please enable in Settings → Apps → Permissions → Location', 'warning');
-        setLocationLoading(false);
-        return;
-      }
-
-      console.log('Location permissions granted, attempting to fetch location...');
-
-      // Step 4: Try to get location - prioritize ANY cached location for Realme devices
-      let location: Location.LocationObject | null = null;
-      let usedLastKnown = false;
-      
-      // Strategy 1: Try to get ANY last known position (even very old)
-      // This is most reliable on Realme devices with GPS issues
-      try {
-        console.log('Checking for any cached location...');
-        const lastKnown = await Location.getLastKnownPositionAsync({
-          maxAge: 86400000, // Accept location up to 24 hours old
-          requiredAccuracy: 100000, // Accept any accuracy (100km)
-        });
-        
-        if (lastKnown && lastKnown.coords) {
-          console.log('Found cached location:', {
-            lat: lastKnown.coords.latitude,
-            lng: lastKnown.coords.longitude,
-            accuracy: lastKnown.coords.accuracy,
-            timestamp: new Date(lastKnown.timestamp).toLocaleString(),
-          });
-          location = lastKnown;
-          usedLastKnown = true;
-        } else {
-          console.log('No cached location available');
-        }
-      } catch (err) {
-        console.log('Error getting cached location:', err);
-      }
-
-      // Strategy 2: Try fresh location with multiple accuracy levels
-      if (!location) {
-        console.log('No cached location found, attempting fresh location fix...');
-        
-        const accuracyLevels = [
-          { accuracy: Location.Accuracy.Low, label: 'Network/Low', timeout: 10000 },
-          { accuracy: Location.Accuracy.Lowest, label: 'Lowest', timeout: 15000 },
-          { accuracy: Location.Accuracy.Balanced, label: 'Balanced', timeout: 20000 },
-        ];
-        
-        for (const level of accuracyLevels) {
-          try {
-            console.log(`Trying ${level.label} accuracy (${level.timeout / 1000}s timeout)...`);
-            location = await Promise.race<Location.LocationObject>([
-              Location.getCurrentPositionAsync({
-                accuracy: level.accuracy,
-                mayShowUserSettingsDialog: true,
-              }),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('GPS timeout')), level.timeout)
-              ),
-            ]);
-
-            if (location && location.coords) {
-              console.log(`Location obtained via ${level.label}:`, {
-                lat: location.coords.latitude,
-                lng: location.coords.longitude,
-                accuracy: location.coords.accuracy,
-              });
-              break;
-            }
-          } catch (err: any) {
-            console.log(`${level.label} attempt failed:`, err.message || err);
-          }
-        }
-        
-        if (!location) {
-          showToast(
-            'GPS signal not available. Tips:\n' +
-            '• Go outdoors for better signal\n' +
-            '• Open Google Maps first to warm up GPS\n' +
-            '• Or enter address manually',
-            'error'
-          );
-          setLocationLoading(false);
-          return;
-        }
-      }
-      
-      // Log which method was used
-      if (usedLastKnown) {
-        console.log('Using cached location (may not be current position)');
-      }
-
-      // Step 5: Validate location was obtained
-      if (!location || !location.coords) {
-        showToast('Location not available. Please enter address manually.', 'warning');
-        setLocationLoading(false);
-        return;
-      }
-
-      console.log('Attempting reverse geocoding...');
-
-      // Step 6: Reverse geocode to get address with error handling
-      let addressData;
-      try {
-        const geocodeResult = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-        
-        addressData = geocodeResult && geocodeResult.length > 0 ? geocodeResult[0] : null;
-      } catch (geocodeError) {
-        console.error('Reverse geocoding failed:', geocodeError);
-        showToast('Location found but unable to get address details. Please enter manually.', 'warning');
-        setLocationLoading(false);
-        return;
-      }
-
-      // Step 7: Process and populate address fields
       if (addressData) {
         console.log('Address data received:', addressData);
         
@@ -433,28 +310,21 @@ export const RegisterDetailsScreen: React.FC<RegisterDetailsScreenProps> = ({
           await handlePincodeChange(cleanPostalCode);
         }
 
-        showToast('Location fetched successfully!', 'success');
+        if (source === 'lastKnown') {
+          showToast(
+            'Using last known location. Move to open sky if current location looks incorrect.',
+            'info',
+          );
+        } else {
+          showToast('Location fetched successfully!', 'success');
+        }
       } else {
         showToast('Location found but address details unavailable. Please enter manually.', 'warning');
       }
       
     } catch (error: any) {
       console.error('Location error:', error);
-      
-      // Provide specific error messages based on error type
-      let errorMessage = 'Failed to fetch location. Please enter address manually.';
-      
-      if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
-        errorMessage = 'Location request timed out. Please ensure:\n• GPS is enabled\n• You have clear sky view\n• Try again in a moment';
-      } else if (error.message?.includes('denied') || error.code === 'E_LOCATION_PERMISSIONS_DENIED') {
-        errorMessage = 'Location permission denied. Enable in Settings → Apps → Permissions';
-      } else if (error.code === 'E_LOCATION_UNAVAILABLE') {
-        errorMessage = 'Location unavailable. Check:\n• GPS is enabled\n• Not in airplane mode\n• Location services are on';
-      } else if (error.code === 'E_LOCATION_SERVICES_DISABLED') {
-        errorMessage = 'Location services disabled. Enable in device Settings';
-      }
-      
-      showToast(errorMessage, 'error');
+      showToast(getFriendlyLocationErrorMessage(error), 'error');
       
     } finally {
       setLocationLoading(false);
