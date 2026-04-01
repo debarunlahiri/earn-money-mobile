@@ -20,7 +20,7 @@ import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { FallingRupees } from '../components/FallingRupee';
 import { updateProfile, getProfile, ProfileData } from '../services/api';
-import { getCachedExpoPushToken } from '../services/notificationService';
+import { getFCMToken } from '../services/fcmService';
 import { INDIA_STATES } from '../data/indiaStates';
 import { INDIA_CITIES, getCitiesByState } from '../data/indiaCities';
 import {
@@ -138,8 +138,8 @@ export const EditProfileScreen: React.FC<EditProfileScreenProps> = ({
           return;
         }
 
-        const expoToken = await getCachedExpoPushToken();
-        const response = await getProfile(userId, token, expoToken || undefined);
+        const fcmToken = await getFCMToken();
+        const response = await getProfile(userId, token, fcmToken || undefined);
 
         if (response.status === 'success' && response.status_code === 200 && response.userdata) {
           console.log('EditProfile: Fresh profile data loaded:', JSON.stringify(response.userdata));

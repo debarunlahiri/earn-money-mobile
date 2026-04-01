@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Property Lead Finder",
+    "name": "EarnWithFreelancing",
     "slug": "earn-money-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -39,7 +39,7 @@
     "notification": {
       "color": "#D4AF37",
       "androidMode": "default",
-      "androidCollapsedTitle": "Property Lead Finder"
+      "androidCollapsedTitle": "EarnWithFreelancing"
     },
     "plugins": [
       [

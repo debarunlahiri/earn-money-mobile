@@ -26,7 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { viewLeads, Lead, getProfileWithLeads, SliderItem, LeadsSummaryItem } from '../services/api';
 import { Carousel, CarouselItem } from '../components/Carousel';
 import { Logo } from '../components/Logo';
-import { registerForPushNotificationsAsync, getCachedExpoPushToken } from '../services/notificationService';
+import { getFCMToken } from '../services/fcmService';
 
 interface MyLeadsScreenProps {
   navigation: any;
@@ -161,11 +161,14 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
     try {
       setError(null);
-      // Get cached expo push token (generated on app startup)
-      const expoToken = await getCachedExpoPushToken();
+      const fcmToken = await getFCMToken();
 
       // Use the new profile API that returns everything
-      const response = await getProfileWithLeads(userData.userid, userData.token, expoToken || undefined);
+      const response = await getProfileWithLeads(
+        userData.userid,
+        userData.token,
+        fcmToken || undefined,
+      );
 
       if (response.status === 'success') {
         // Set leads from view_leads

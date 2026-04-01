@@ -89,7 +89,7 @@ export const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProp
     try {
       await scheduleLocalNotification(
         'Test Notification',
-        'This is a test notification from Earn Money app! 💰',
+        'This is a test notification from EarnWithFreelancing! 💰',
         { type: 'test' }
       );
       Alert.alert('Success', 'Test notification sent!');

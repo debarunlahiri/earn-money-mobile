@@ -135,11 +135,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
         )}
 
         {/* Support */}
-       /* The above code is a snippet of TypeScript React code that represents a menu item component.
-       It consists of a container with various nested views and touchable opacity for interaction.
-       The menu item has an icon, text, and a chevron icon for navigation. When pressed, it
-       navigates to the 'SupportChat' screen. The styling includes glass-like effects using
-       different layers and borders to create a visually appealing design for the menu item. */
         {/* <View style={styles.menuItemContainer}>
           <View style={styles.menuItemGlassContainer}>
             <View style={styles.menuItemGlassBaseLayer} />

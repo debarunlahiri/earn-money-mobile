@@ -18,7 +18,7 @@ import { useScrollVisibility } from '../context/ScrollVisibilityContext';
 import { FallingRupees } from '../components/FallingRupee';
 import { useAuth } from '../context/AuthContext';
 import { getProfile, ProfileData, updateProfile } from '../services/api';
-import { getCachedExpoPushToken } from '../services/notificationService';
+import { getFCMToken } from '../services/fcmService';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -48,10 +48,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         setIsLoading(true);
         console.log('Fetching profile for userid:', userData.userid, 'token:', userData.token);
 
-        // Get cached expo push token (generated on app startup)
-        const expoToken = await getCachedExpoPushToken();
-
-        const response = await getProfile(userData.userid, userData.token, expoToken || undefined);
+        const fcmToken = await getFCMToken();
+        const response = await getProfile(
+          userData.userid,
+          userData.token,
+          fcmToken || undefined,
+        );
         console.log('Profile API response:', JSON.stringify(response));
 
         if (response.status === 'success' && response.status_code === 200) {
@@ -617,4 +619,3 @@ const styles = StyleSheet.create({
     color: '#D4AF37',
   },
 });
-

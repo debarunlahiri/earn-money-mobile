@@ -43,6 +43,11 @@ async function storeExpoPushToken(token: string): Promise<void> {
   }
 }
 
+function normalizeExpoTokenForBackend(token: string): string {
+  const match = token.match(/^ExponentPushToken\[(.+)\]$/);
+  return match ? match[1] : token;
+}
+
 /**
  * Register for push notifications and get the Expo push token
  * @returns Promise<string | null> - Returns the push token or null if registration fails
@@ -231,27 +236,17 @@ export async function sendPushTokenToServer(
   apiToken: string,
 ): Promise<boolean> {
   try {
-    // Replace with your actual API endpoint
-    const response = await fetch('YOUR_API_ENDPOINT/save-push-token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify({
-        userid: userId,
-        push_token: token,
-        device_type: Platform.OS,
-        device_info: {
-          brand: Device.brand,
-          modelName: Device.modelName,
-          osVersion: Device.osVersion,
-        },
-      }),
+    const normalizedToken = normalizeExpoTokenForBackend(token);
+    console.log('[ExpoToken][Service] sendPushTokenToServer called', {
+      userId,
+      expoToken: token,
+      normalizedExpoToken: normalizedToken,
+      apiToken,
     });
-
-    const data = await response.json();
-    return data.status === 'success';
+    const {saveExpoToken} = await import('./api');
+    const response = await saveExpoToken(userId, apiToken, normalizedToken);
+    console.log('[ExpoToken][Service] sendPushTokenToServer response', response);
+    return response.status === 'success';
   } catch (error) {
     console.error('Error sending push token to server:', error);
     return false;

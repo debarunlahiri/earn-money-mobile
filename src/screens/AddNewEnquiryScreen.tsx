@@ -10,6 +10,7 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -37,8 +38,10 @@ interface AddNewEnquiryScreenProps {
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
 const SLIDER_WIDTH = SCREEN_WIDTH - 80;
-const MIN_BUDGET = 0;
-const MAX_BUDGET = 200000000; // 20 Crores
+const DEFAULT_MIN_BUDGET = 0;
+const DEFAULT_MAX_BUDGET = 200000000; // 20 Crores
+const RENT_MAX_BUDGET = 500000; // 5 Lakhs
+const FUTURE_REFERENCE_OPTIONS = ['Yes', 'No', 'Others'];
 
 export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   navigation,
@@ -52,9 +55,13 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [email, setEmail] = useState('');
   const [propertyType, setPropertyType] = useState('');
   const [propertySearchFor, setPropertySearchFor] = useState('');
+  const [futureReferencePreference, setFutureReferencePreference] = useState('');
+  const [futureReferenceOtherName, setFutureReferenceOtherName] = useState('');
+  const [showFutureReferencePicker, setShowFutureReferencePicker] =
+    useState(false);
   const [propertySearchingIn, setPropertySearchingIn] = useState('');
   const [minBudget, setMinBudget] = useState(0);
-  const [maxBudget, setMaxBudget] = useState(200000000); // 20 Crores
+  const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
   const [showPropertyTypePicker, setShowPropertyTypePicker] = useState(false);
   const [showPropertySearchForPicker, setShowPropertySearchForPicker] =
     useState(false);
@@ -65,6 +72,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     width: SLIDER_WIDTH,
     pageX: 0,
   });
+  const futureReferenceAnim = useRef(new Animated.Value(0)).current;
 
   // Location dropdown states
   const [selectedState, setSelectedState] = useState('');
@@ -413,6 +421,37 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const propertyTypeOptions = ['Rent', 'Purchase', 'Plot'];
   const propertySearchOptions = ['Sale', 'Purchase'];
 
+  const getBudgetRangeForPropertySearch = useCallback(
+    (selectedSearchFor: string) => {
+      const normalizedSearchFor = selectedSearchFor.trim().toLowerCase();
+
+      if (normalizedSearchFor === 'rent') {
+        return {
+          min: DEFAULT_MIN_BUDGET,
+          max: RENT_MAX_BUDGET,
+        };
+      }
+
+      if (
+        normalizedSearchFor === 'purchase' ||
+        normalizedSearchFor === 'plot'
+      ) {
+        return {
+          min: DEFAULT_MIN_BUDGET,
+          max: DEFAULT_MAX_BUDGET,
+        };
+      }
+
+      return {
+        min: DEFAULT_MIN_BUDGET,
+        max: DEFAULT_MAX_BUDGET,
+      };
+    },
+    [],
+  );
+
+  const budgetRange = getBudgetRangeForPropertySearch(propertySearchFor);
+
   const formatEnquiryName = (text: string) => {
     if (text.length === 0) {
       return text;
@@ -437,13 +476,16 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
 
   const getSliderPosition = (value: number) => {
     return (
-      ((value - MIN_BUDGET) / (MAX_BUDGET - MIN_BUDGET)) * trackLayout.width
+      ((value - budgetRange.min) / (budgetRange.max - budgetRange.min)) *
+      trackLayout.width
     );
   };
 
   const getValueFromPosition = (position: number) => {
     const ratio = Math.max(0, Math.min(1, position / trackLayout.width));
-    return Math.round(MIN_BUDGET + ratio * (MAX_BUDGET - MIN_BUDGET));
+    return Math.round(
+      budgetRange.min + ratio * (budgetRange.max - budgetRange.min),
+    );
   };
 
   const formatCurrency = (value: number) => {
@@ -466,7 +508,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     onPanResponderMove: (_, gestureState) => {
       const touchX = gestureState.moveX - trackLayout.pageX;
       const newValue = getValueFromPosition(touchX);
-      if (newValue < maxBudget && newValue >= MIN_BUDGET) {
+      if (newValue < maxBudget && newValue >= budgetRange.min) {
         setMinBudget(newValue);
       }
     },
@@ -484,7 +526,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     onPanResponderMove: (_, gestureState) => {
       const touchX = gestureState.moveX - trackLayout.pageX;
       const newValue = getValueFromPosition(touchX);
-      if (newValue > minBudget && newValue <= MAX_BUDGET) {
+      if (newValue > minBudget && newValue <= budgetRange.max) {
         setMaxBudget(newValue);
       }
     },
@@ -518,6 +560,9 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
       !mobileNumber.trim() ||
       !propertyType ||
       !propertySearchFor ||
+      !futureReferencePreference ||
+      (futureReferencePreference === 'Others' &&
+        !futureReferenceOtherName.trim()) ||
       !propertySearchingIn.trim()
     ) {
       showDialog('Please fill in all required fields', 'Error', 'error');
@@ -536,6 +581,10 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
         `Property Type: ${propertyType}`,
         `Property Search: ${propertySearchFor}`,
         `Budget: ${formatCurrency(minBudget)} - ${formatCurrency(maxBudget)}`,
+        `Use Name for this lead reference: ${futureReferencePreference}`,
+        futureReferencePreference === 'Others' &&
+          futureReferenceOtherName.trim() &&
+          `Reference Name: ${futureReferenceOtherName.trim()}`,
         getStateName(selectedState) && `State: ${getStateName(selectedState)}`,
         getCityName(selectedCity) && `City: ${getCityName(selectedCity)}`,
         getSectorName(selectedSector) && `Sector: ${getSectorName(selectedSector)}`,
@@ -552,6 +601,11 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
         property_for: propertySearchFor.trim().toLowerCase(),
         property_type: propertyType.trim(),
         budget: maxBudget.toString(),
+        use_my_name: futureReferencePreference,
+        reference_name:
+          futureReferencePreference === 'Others'
+            ? futureReferenceOtherName.trim()
+            : undefined,
       });
 
       if (response.status === 'success') {
@@ -579,6 +633,32 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    setMinBudget(budgetRange.min);
+    setMaxBudget(budgetRange.max);
+  }, [budgetRange.max, budgetRange.min]);
+
+  useEffect(() => {
+    if (futureReferencePreference !== 'Others') {
+      setFutureReferenceOtherName('');
+    }
+  }, [futureReferencePreference]);
+
+  useEffect(() => {
+    if (futureReferencePreference === 'Others') {
+      futureReferenceAnim.setValue(0);
+      Animated.parallel([
+        Animated.timing(futureReferenceAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      futureReferenceAnim.setValue(0);
+    }
+  }, [futureReferenceAnim, futureReferencePreference]);
 
   return (
     <View
@@ -650,177 +730,201 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             }
           />
 
-          <EnhancedTouchable
-            onPress={() => {
-              setShowPropertyTypePicker(!showPropertyTypePicker);
-              setShowPropertySearchForPicker(false);
-            }}
-            activeOpacity={1}
-            hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
-            <Input
-              label="Property Type *"
-              value={propertyType}
-              placeholder="Select property type"
-              editable={false}
-              pointerEvents="none"
-              leftIcon={
-                <Icon
-                  name="home"
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
-              }
-              rightIcon={
-                <Icon
-                  name="arrow-drop-down"
-                  size={24}
-                  color={theme.colors.textSecondary}
-                />
-              }
-            />
-          </EnhancedTouchable>
+          <View style={styles.propertyTypeFieldWrapper}>
+            <EnhancedTouchable
+              onPress={() => {
+                setShowPropertyTypePicker(!showPropertyTypePicker);
+                setShowPropertySearchForPicker(false);
+                setShowFutureReferencePicker(false);
+              }}
+              activeOpacity={1}
+              hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
+              <Input
+                label="Property Type *"
+                value={propertyType}
+                placeholder="Select property type"
+                editable={false}
+                pointerEvents="none"
+                leftIcon={
+                  <Icon
+                    name="home"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                }
+                rightIcon={
+                  <Icon
+                    name="arrow-drop-down"
+                    size={24}
+                    color={theme.colors.textSecondary}
+                  />
+                }
+              />
+            </EnhancedTouchable>
 
-          {showPropertyTypePicker && (
-            <View
-              style={[
-                styles.pickerContainer,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                  borderWidth: 1,
-                },
-              ]}>
-              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
-                {propertyTypesLoading ? (
-                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
-                  </View>
-                ) : propertyTypes.length > 0 ? (
-                  propertyTypes.map(option => (
-                    <EnhancedTouchable
-                      key={option}
-                      activeOpacity={0.7}
-                      style={[
-                        styles.pickerItem,
-                        {
-                          backgroundColor: theme.colors.surface,
-                          borderBottomColor: theme.colors.border,
-                        },
-                      ]}
-                      hitSlopSize="small"
-                      onPress={() => handlePropertyTypeChange(option)}>
+            {showPropertyTypePicker && (
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    borderWidth: 1,
+                  },
+                ]}>
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                  {propertyTypesLoading ? (
+                    <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                  ) : propertyTypes.length > 0 ? (
+                    propertyTypes.map(option => (
+                      <EnhancedTouchable
+                        key={option}
+                        activeOpacity={0.7}
+                        style={[
+                          styles.pickerItem,
+                          {
+                            backgroundColor: theme.colors.surface,
+                            borderBottomColor: theme.colors.border,
+                          },
+                        ]}
+                        hitSlopSize="small"
+                        onPress={() => handlePropertyTypeChange(option)}>
+                        <Text
+                          style={[
+                            styles.pickerText,
+                            {
+                              color: theme.colors.text,
+                              fontWeight:
+                                propertyType === option ? '600' : '400',
+                            },
+                          ]}>
+                          {option}
+                        </Text>
+                      </EnhancedTouchable>
+                    ))
+                  ) : (
+                    <View style={[styles.pickerItem, {paddingVertical: 15}]}>
                       <Text
                         style={[
                           styles.pickerText,
-                          {
-                            color: theme.colors.text,
-                            fontWeight:
-                              propertyType === option ? '600' : '400',
-                          },
+                          {color: theme.colors.textSecondary},
                         ]}>
-                        {option}
+                        No property types available
                       </Text>
-                    </EnhancedTouchable>
-                  ))
-                ) : (
-                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                    <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
-                      No property types available
-                    </Text>
-                  </View>
-                )}
-              </ScrollView>
-            </View>
-          )}
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
+          </View>
 
-          <EnhancedTouchable
-            onPress={() => {
-              setShowPropertySearchForPicker(!showPropertySearchForPicker);
-              setShowPropertyTypePicker(false);
-            }}
-            activeOpacity={1}
-            hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
-            <Input
-              label="Property Search For *"
-              value={propertySearchFor}
-              placeholder="Select property search type"
-              editable={false}
-              pointerEvents="none"
-              leftIcon={
-                <Icon
-                  name="search"
-                  size={20}
-                  color={theme.colors.textSecondary}
-                />
-              }
-              rightIcon={
-                <Icon
-                  name="arrow-drop-down"
-                  size={24}
-                  color={theme.colors.textSecondary}
-                />
-              }
-            />
-          </EnhancedTouchable>
+          <View style={styles.propertySearchFieldWrapper}>
+            <EnhancedTouchable
+              onPress={() => {
+                setShowPropertySearchForPicker(!showPropertySearchForPicker);
+                setShowPropertyTypePicker(false);
+                setShowFutureReferencePicker(false);
+              }}
+              activeOpacity={1}
+              hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
+              <Input
+                label="Property Search For *"
+                value={propertySearchFor}
+                placeholder="Select property search type"
+                editable={false}
+                pointerEvents="none"
+                leftIcon={
+                  <Icon
+                    name="search"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                }
+                rightIcon={
+                  <Icon
+                    name="arrow-drop-down"
+                    size={24}
+                    color={theme.colors.textSecondary}
+                  />
+                }
+              />
+            </EnhancedTouchable>
 
-          {showPropertySearchForPicker && (
-            <View
-              style={[
-                styles.pickerContainer,
-                {
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                  borderWidth: 1,
-                },
-              ]}>
-              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
-                {propertySearchForLoading ? (
-                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
-                  </View>
-                ) : propertySearchForOptions.length > 0 ? (
-                  propertySearchForOptions.map(option => (
-                    <EnhancedTouchable
-                      key={option}
-                      activeOpacity={0.7}
-                      style={[
-                        styles.pickerItem,
-                        {
-                          backgroundColor: theme.colors.surface,
-                          borderBottomColor: theme.colors.border,
-                        },
-                      ]}
-                      hitSlopSize="small"
-                      onPress={() => handlePropertySearchForChange(option)}>
+            {showPropertySearchForPicker && (
+              <View
+                style={[
+                  styles.pickerContainer,
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    borderWidth: 1,
+                  },
+                ]}>
+                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                  {propertySearchForLoading ? (
+                    <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                      <ActivityIndicator
+                        size="small"
+                        color={theme.colors.primary}
+                      />
+                    </View>
+                  ) : propertySearchForOptions.length > 0 ? (
+                    propertySearchForOptions.map(option => (
+                      <EnhancedTouchable
+                        key={option}
+                        activeOpacity={0.7}
+                        style={[
+                          styles.pickerItem,
+                          {
+                            backgroundColor: theme.colors.surface,
+                            borderBottomColor: theme.colors.border,
+                          },
+                        ]}
+                        hitSlopSize="small"
+                        onPress={() => handlePropertySearchForChange(option)}>
+                        <Text
+                          style={[
+                            styles.pickerText,
+                            {
+                              color: theme.colors.text,
+                              fontWeight:
+                                propertySearchFor === option ? '600' : '400',
+                            },
+                          ]}>
+                          {option}
+                        </Text>
+                      </EnhancedTouchable>
+                    ))
+                  ) : propertyType ? (
+                    <View style={[styles.pickerItem, {paddingVertical: 15}]}>
                       <Text
                         style={[
                           styles.pickerText,
-                          {
-                            color: theme.colors.text,
-                            fontWeight:
-                              propertySearchFor === option ? '600' : '400',
-                          },
+                          {color: theme.colors.textSecondary},
                         ]}>
-                        {option}
+                        No search options available
                       </Text>
-                    </EnhancedTouchable>
-                  ))
-                ) : propertyType ? (
-                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                    <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
-                      No search options available
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={[styles.pickerItem, {paddingVertical: 15}]}>
-                    <Text style={[styles.pickerText, {color: theme.colors.textSecondary}]}>
-                      Select property type first
-                    </Text>
-                  </View>
-                )}
-              </ScrollView>
-            </View>
-          )}
+                    </View>
+                  ) : (
+                    <View style={[styles.pickerItem, {paddingVertical: 15}]}>
+                      <Text
+                        style={[
+                          styles.pickerText,
+                          {color: theme.colors.textSecondary},
+                        ]}>
+                        Select property type first
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
+          </View>
 
           <Input
             label="Property Searching In (Address) *"
@@ -1044,6 +1148,119 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             </View>
           )}
 
+          <EnhancedTouchable
+            onPress={() => {
+              setShowFutureReferencePicker(!showFutureReferencePicker);
+              setShowPropertyTypePicker(false);
+              setShowPropertySearchForPicker(false);
+            }}
+            activeOpacity={1}
+            hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
+            <Input
+              label="Would you like to use your name for future reference? *"
+              value={futureReferencePreference}
+              placeholder="Select an option"
+              editable={false}
+              pointerEvents="none"
+              leftIcon={
+                <Icon
+                  name="badge"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                />
+              }
+              rightIcon={
+                <Icon
+                  name="arrow-drop-down"
+                  size={24}
+                  color={theme.colors.textSecondary}
+                />
+              }
+            />
+          </EnhancedTouchable>
+
+          {showFutureReferencePicker && (
+            <View
+              style={[
+                styles.pickerContainer,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.border,
+                  borderWidth: 1,
+                },
+              ]}>
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator>
+                {FUTURE_REFERENCE_OPTIONS.map(option => (
+                  <EnhancedTouchable
+                    key={option}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.pickerItem,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderBottomColor: theme.colors.border,
+                      },
+                    ]}
+                    hitSlopSize="small"
+                    onPress={() => {
+                      setFutureReferencePreference(option);
+                      setShowFutureReferencePicker(false);
+                    }}>
+                    <Text
+                      style={[
+                        styles.pickerText,
+                        {
+                          color: theme.colors.text,
+                          fontWeight:
+                            futureReferencePreference === option ? '600' : '400',
+                        },
+                      ]}>
+                      {option}
+                    </Text>
+                  </EnhancedTouchable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {futureReferencePreference === 'Others' && (
+            <Animated.View
+              style={{
+                opacity: futureReferenceAnim,
+                transform: [
+                  {
+                    translateY: futureReferenceAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-10, 0],
+                    }),
+                  },
+                  {
+                    scaleY: futureReferenceAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.96, 1],
+                    }),
+                  },
+                ],
+              }}>
+              <Input
+                label="Enter name for future reference *"
+                value={futureReferenceOtherName}
+                onChangeText={text =>
+                  setFutureReferenceOtherName(formatEnquiryName(text))
+                }
+                placeholder="Enter name"
+                autoCapitalize="words"
+                leftIcon={
+                  <Icon
+                    name="edit"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                }
+              />
+            </Animated.View>
+          )}
+
 
           <View style={styles.budgetContainer}>
             <Text style={[styles.label, {color: theme.colors.text}]}>
@@ -1205,6 +1422,14 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 20,
+  },
+  propertyTypeFieldWrapper: {
+    zIndex: 30,
+    elevation: 30,
+  },
+  propertySearchFieldWrapper: {
+    zIndex: 20,
+    elevation: 20,
   },
   label: {
     fontSize: 14,

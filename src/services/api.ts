@@ -245,6 +245,8 @@ export const addLead = async (params: {
   property_for?: string;
   property_type?: string;
   budget?: string | number;
+  use_my_name?: string;
+  reference_name?: string;
 }): Promise<AddLeadResponse> => {
   const formData = new FormData();
   formData.append('action', 'add_lead');
@@ -262,6 +264,12 @@ export const addLead = async (params: {
   }
   if (params.budget !== undefined && params.budget !== null) {
     formData.append('budget', params.budget.toString());
+  }
+  if (params.use_my_name) {
+    formData.append('use_my_name', params.use_my_name);
+  }
+  if (params.reference_name) {
+    formData.append('reference_name', params.reference_name);
   }
 
   const startTime = Date.now();
@@ -449,8 +457,8 @@ export const submitForwardLead = async (params: {
   formData.append('status', params.status);
   formData.append('remark', params.remark);
   formData.append('user_id', params.user_id.toString());
-  formData.append('userid', '10');
-  formData.append('token', '10');
+  formData.append('userid', params.userid.toString());
+  formData.append('token', params.token.toString());
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);
@@ -480,12 +488,8 @@ export const viewForwardLeads = async (
 ): Promise<ViewForwardLeadsResponse> => {
   const formData = new FormData();
   formData.append('action', 'view_forward_leads');
-  // formData.append('userid', userid.toString());
-  // formData.append('token', token.toString());
-
-  formData.append('userid', '10');
-  formData.append('token', '10');
-
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);
@@ -786,6 +790,12 @@ export interface SaveFCMTokenResponse {
   message: string;
 }
 
+export interface SaveExpoTokenResponse {
+  status: string;
+  status_code: number;
+  message: string;
+}
+
 /**
  * Saves FCM token to the backend
  */
@@ -812,6 +822,46 @@ export const saveFCMToken = async (
     });
 
     const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Saves Expo push token to the backend
+ */
+export const saveExpoToken = async (
+  userid: string | number,
+  token: string | number,
+  expo_token: string,
+): Promise<SaveExpoTokenResponse> => {
+  console.log('[ExpoToken][API] saveExpoToken called', {
+    action: 'expo_token',
+    userid: userid.toString(),
+    token: token.toString(),
+    expo_token,
+  });
+  const formData = new FormData();
+  formData.append('action', 'expo_token');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+  formData.append('expo_token', expo_token);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    console.log('[ExpoToken][API] saveExpoToken response', data);
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
     checkForAuthError(data);
     return data;

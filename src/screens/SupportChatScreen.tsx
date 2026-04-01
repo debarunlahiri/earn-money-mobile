@@ -159,7 +159,7 @@ export const SupportChatScreen: React.FC<SupportChatScreenProps> = ({navigation}
       if (!snapshot.exists()) {
         const greetingMessageRef = push(chatRef);
         const greetingMessage = {
-          text: 'Hello! Welcome to Earn Money Support. How can we assist you today? Our support team will respond to your queries shortly.',
+          text: 'Hello! Welcome to EarnWithFreelancing Support. How can we assist you today? Our support team will respond to your queries shortly.',
           sender: 'admin',
           timestamp: Date.now(),
           userId: 'system',

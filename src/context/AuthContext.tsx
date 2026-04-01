@@ -2,7 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserData, getProfile } from '../services/api';
 import { subscribeToLogoutRequired } from '../utils/authEventEmitter';
-import { registerForPushNotificationsAsync, getCachedExpoPushToken } from '../services/notificationService';
+import {
+  getFCMToken,
+  sendFCMTokenToServer,
+} from '../services/fcmService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -20,15 +23,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
-
-  // Generate expo push token on app startup (runs once)
-  useEffect(() => {
-    const initializePushToken = async () => {
-      console.log('Initializing expo push token on app startup...');
-      await registerForPushNotificationsAsync();
-    };
-    initializePushToken();
-  }, []);
 
   useEffect(() => {
     checkAuthState();
@@ -65,10 +59,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Fetch fresh profile data from API to get latest username
         try {
-          // Get cached expo push token (generated on startup)
-          const expoToken = await getCachedExpoPushToken();
-
-          const response = await getProfile(parsedUserData.userid, parsedUserData.token, expoToken || undefined);
+          const fcmToken = await getFCMToken();
+          const response = await getProfile(
+            parsedUserData.userid,
+            parsedUserData.token,
+            fcmToken || undefined,
+          );
 
           if (response.status === 'success' && response.userdata) {
             // Update stored user data with fresh profile info
@@ -105,6 +101,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         await AsyncStorage.setItem('userData', JSON.stringify(userDataParam));
         console.log('[AuthContext] login called, is_new:', userDataParam.is_new);
         setUserData({...userDataParam});
+
+        try {
+          const fcmToken = await getFCMToken();
+          if (fcmToken) {
+            await sendFCMTokenToServer(
+              userDataParam.userid.toString(),
+              fcmToken,
+              userDataParam.token.toString(),
+            );
+          }
+        } catch (error) {
+          console.error('Error syncing FCM token on login:', error);
+        }
       }
       setIsAuthenticated(true);
     } catch (error) {

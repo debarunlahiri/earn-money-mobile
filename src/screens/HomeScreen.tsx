@@ -8,10 +8,15 @@ import {MyLeadsScreen} from './MyLeadsScreen';
 import {ProfileScreen} from './ProfileScreen';
 import {WalletScreen} from './WalletScreen';
 import {NotificationScreen} from './NotificationScreen';
-import {ForwardLeadsScreen} from './ForwardLeadsScreen';
+// import {ForwardLeadsScreen} from './ForwardLeadsScreen';
 import {AnimatedTabBar} from '../components/AnimatedTabBar';
 import {useAuth} from '../context/AuthContext';
 import {getUnreadNotificationCount} from '../services/api';
+import {
+  getFCMToken,
+  requestFCMPermissions,
+  sendFCMTokenToServer,
+} from '../services/fcmService';
 
 const Tab = createBottomTabNavigator();
 
@@ -55,17 +60,17 @@ const NotificationTabContent = ({
   );
 };
 
-const ForwardLeadsTabContent = ({
-  navigation,
-}: {
-  navigation: any;
-}) => {
-  return (
-    <View style={styles.container}>
-      <ForwardLeadsScreen navigation={navigation} />
-    </View>
-  );
-};
+// const ForwardLeadsTabContent = ({
+//   navigation,
+// }: {
+//   navigation: any;
+// }) => {
+//   return (
+//     <View style={styles.container}>
+//       <ForwardLeadsScreen navigation={navigation} />
+//     </View>
+//   );
+// };
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   const {theme} = useTheme();
@@ -75,6 +80,46 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   // Fetch unread notification count on mount
   useEffect(() => {
     fetchUnreadCount();
+  }, [userData]);
+
+  useEffect(() => {
+    const syncFcmTokenOnHomeLaunch = async () => {
+      if (!userData?.userid || !userData?.token) {
+        console.log('[FCMToken][HomeScreen] Missing user credentials, skipping sync');
+        return;
+      }
+
+      try {
+        console.log('[FCMToken][HomeScreen] Starting sync for user:', userData.userid);
+        const hasPermission = await requestFCMPermissions();
+        console.log('[FCMToken][HomeScreen] Permission status:', hasPermission);
+
+        if (!hasPermission) {
+          console.log('[FCMToken][HomeScreen] Notification permission denied');
+          return;
+        }
+
+        const fcmToken = await getFCMToken();
+        console.log('[FCMToken][HomeScreen] FCM token:', fcmToken);
+
+        if (!fcmToken) {
+          console.log('[FCMToken][HomeScreen] No FCM token available');
+          return;
+        }
+
+        console.log('[FCMToken][HomeScreen] Sending FCM token to backend:', fcmToken);
+        await sendFCMTokenToServer(
+          userData.userid.toString(),
+          fcmToken,
+          userData.token.toString(),
+        );
+        console.log('[FCMToken][HomeScreen] FCM token sync completed');
+      } catch (error) {
+        console.error('Error syncing FCM token from home screen:', error);
+      }
+    };
+
+    syncFcmTokenOnHomeLaunch();
   }, [userData]);
 
   // Refetch unread count when screen comes into focus
@@ -146,7 +191,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
             />
           )}
         </Tab.Screen>
-        <Tab.Screen
+        {/* <Tab.Screen
           name="ForwardLeadsTab"
           options={{
             tabBarLabel: 'Forwards',
@@ -159,7 +204,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
               navigation={navigation}
             />
           )}
-        </Tab.Screen>
+        </Tab.Screen> */}
         <Tab.Screen
           name="WalletTab"
           options={{
