@@ -806,7 +806,7 @@ export const saveFCMToken = async (
   device_type: string = 'android',
 ): Promise<SaveFCMTokenResponse> => {
   const formData = new FormData();
-  formData.append('action', 'save_fcm_token');
+  formData.append('action', 'expo_token');
   formData.append('userid', userid.toString());
   formData.append('token', token.toString());
   formData.append('fcm_token', fcm_token);
