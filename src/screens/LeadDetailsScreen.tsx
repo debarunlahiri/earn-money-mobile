@@ -18,6 +18,7 @@ interface LeadDetailsScreenProps {
   route?: {
     params: {
       lead: Lead;
+      canEdit?: boolean;
     };
   };
 }
@@ -29,6 +30,10 @@ export const LeadDetailsScreen: React.FC<LeadDetailsScreenProps> = ({
   const {theme} = useTheme();
   const insets = useSafeAreaInsets();
   const {lead} = route!.params;
+  const isEditableLead = (lead.enq_no || lead.status || '')
+    .trim()
+    .toLowerCase() === 'new';
+  const canEdit = route?.params?.canEdit === true && isEditableLead;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -59,15 +64,33 @@ export const LeadDetailsScreen: React.FC<LeadDetailsScreenProps> = ({
       <StatusBar barStyle="light-content" backgroundColor="#121212" />
 
       <View style={[styles.header, {paddingTop: insets.top + 10}]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
+        <View style={styles.headerSide}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}>
+            <Icon name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+        </View>
         <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
           Lead Details
         </Text>
-        <View style={styles.placeholder} />
+        <View style={[styles.headerSide, styles.headerRightSide]}>
+          {canEdit ? (
+            <TouchableOpacity
+              style={styles.headerEditButton}
+              onPress={() =>
+                navigation.navigate('AddNewEnquiry', {
+                  lead,
+                  isEditMode: true,
+                })
+              }>
+              <Icon name="edit" size={16} color="#000" />
+              <Text style={styles.headerEditButtonText}>Update</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.placeholder} />
+          )}
+        </View>
       </View>
 
       <ScrollView
@@ -77,7 +100,7 @@ export const LeadDetailsScreen: React.FC<LeadDetailsScreenProps> = ({
         <View style={styles.idSection}>
           <View style={styles.badgesRow}>
             <View style={styles.idBadge}>
-              <Text style={styles.idText}>Lead #{lead.id}</Text>
+              <Text style={styles.idText}>Enquiry #{lead.id}</Text>
             </View>
             <View style={[
               styles.statusBadge,
@@ -177,21 +200,46 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
+  headerSide: {
+    width: 96,
+    justifyContent: 'center',
+  },
+  headerRightSide: {
+    alignItems: 'flex-end',
+  },
   backButton: {
     padding: 8,
   },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: '700',
+    textAlign: 'center',
   },
   placeholder: {
-    width: 40,
+    width: 76,
+    height: 36,
+  },
+  headerEditButton: {
+    minWidth: 76,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#D4AF37',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  headerEditButtonText: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#000',
   },
   scrollContent: {
     padding: 20,

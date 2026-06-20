@@ -3,6 +3,23 @@ import {emitLogoutRequired} from '../utils/authEventEmitter';
 
 const API_BASE_URL = 'https://api.erpvisit.com/api_money.php';
 
+const parseJsonResponse = async <T>(
+  response: Response,
+  fallbackOnEmpty?: T,
+): Promise<T> => {
+  const responseText = await response.text();
+
+  if (!responseText.trim()) {
+    if (fallbackOnEmpty !== undefined) {
+      return fallbackOnEmpty;
+    }
+
+    throw new SyntaxError('JSON Parse error: Unexpected end of input');
+  }
+
+  return JSON.parse(responseText) as T;
+};
+
 /**
  * Checks if the API response indicates an authentication failure (401)
  * If so, emits a logout event to trigger automatic logout
@@ -245,6 +262,7 @@ export const addLead = async (params: {
   property_for?: string;
   property_type?: string;
   budget?: string | number;
+  tower?: string;
   use_my_name?: string;
   reference_name?: string;
 }): Promise<AddLeadResponse> => {
@@ -264,6 +282,74 @@ export const addLead = async (params: {
   }
   if (params.budget !== undefined && params.budget !== null) {
     formData.append('budget', params.budget.toString());
+  }
+  if (params.tower) {
+    formData.append('tower', params.tower);
+  }
+  if (params.use_my_name) {
+    formData.append('use_my_name', params.use_my_name);
+  }
+  if (params.reference_name) {
+    formData.append('reference_name', params.reference_name);
+  }
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+    checkForAuthError(data);
+    return data;
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Updates an existing lead/enquiry
+ */
+export const updateEnquiry = async (params: {
+  lead_id: string | number;
+  userid: string | number;
+  token: string | number;
+  leadname: string;
+  leadmobile: string;
+  address: string;
+  requirement: string;
+  property_for?: string;
+  property_type?: string;
+  budget?: string | number;
+  tower?: string;
+  use_my_name?: string;
+  reference_name?: string;
+}): Promise<AddLeadResponse> => {
+  const formData = new FormData();
+  formData.append('action', 'update_lead');
+  formData.append('lead_id', params.lead_id.toString());
+  formData.append('userid', params.userid.toString());
+  formData.append('token', params.token.toString());
+  formData.append('leadname', params.leadname);
+  formData.append('leadmobile', params.leadmobile);
+  formData.append('address', params.address);
+  formData.append('requirement', params.requirement);
+  if (params.property_for) {
+    formData.append('property_for', params.property_for);
+  }
+  if (params.property_type) {
+    formData.append('property_type', params.property_type);
+  }
+  if (params.budget !== undefined && params.budget !== null) {
+    formData.append('budget', params.budget.toString());
+  }
+  if (params.tower) {
+    formData.append('tower', params.tower);
   }
   if (params.use_my_name) {
     formData.append('use_my_name', params.use_my_name);
@@ -293,6 +379,7 @@ export const addLead = async (params: {
 
 export interface Lead {
   id: number;
+  enq_no?: string;
   status: string;
   name: string;
   mobile: string;
@@ -737,7 +824,13 @@ export const getUnreadNotificationCount = async (
       body: formData,
     });
 
-    const data = await response.json();
+    const data = await parseJsonResponse<UnreadNotificationResponse>(response, {
+      status: 'success',
+      status_code: response.status,
+      userdata: {
+        unread_count: '0',
+      },
+    });
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
     checkForAuthError(data);
     return data;

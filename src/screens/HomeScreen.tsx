@@ -17,8 +17,9 @@ import {
   requestFCMPermissions,
   sendFCMTokenToServer,
 } from '../services/fcmService';
+import type {HomeTabParamList} from '../types/navigation';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<HomeTabParamList>();
 
 interface HomeScreenProps {
   navigation: any;
@@ -158,6 +159,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
         backgroundColor="transparent"
       />
       <Tab.Navigator
+        initialRouteName="Dashboard"
         sceneContainerStyle={{backgroundColor: 'transparent'}}
         tabBar={(props) => <AnimatedTabBar {...props} />}
         screenOptions={{

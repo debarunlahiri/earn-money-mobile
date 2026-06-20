@@ -16,6 +16,7 @@ import {
   sendFCMTokenToServer,
 } from '../services/fcmService';
 import { useAuth } from './AuthContext';
+import { navigateToNotifications } from '../navigation/navigationRef';
 
 interface NotificationContextType {
   expoPushToken: string | null;
@@ -110,14 +111,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     responseListener.current = addNotificationResponseReceivedListener((response) => {
       console.log('Expo notification tapped:', response);
       const data = response.notification.request.content.data;
-      
-      // Handle navigation based on notification type
-      // TODO: Add your navigation logic here
-      // Example:
-      // if (data.type === 'new_lead') {
-      //   navigation.navigate('MyLeads', { leadId: data.leadId });
-      // }
-      
+      console.log('Expo notification tap data:', data);
+
+      navigateToNotifications();
       resetNotificationCount();
     });
 
@@ -132,15 +128,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       // On notification opened
       (message) => {
         console.log('FCM notification opened:', message);
-        
-        // Handle navigation based on notification data
         const data = message.data;
-        // TODO: Add your navigation logic here
-        // Example:
-        // if (data?.type === 'new_lead') {
-        //   navigation.navigate('MyLeads', { leadId: data.leadId });
-        // }
-        
+        console.log('FCM notification open data:', data);
+
+        navigateToNotifications();
         resetNotificationCount();
       }
     );

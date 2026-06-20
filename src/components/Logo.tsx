@@ -17,7 +17,7 @@ export const Logo: React.FC<LogoProps> = ({size = 60, style, showFallbackOnError
   const {theme} = useTheme();
 
   // Local logo as primary fallback
-  const localLogo = require('../../assets/logo/logo.jpg');
+  const localLogo = require('../assets/logo.png');
 
   if (isLoading && !preferLocal) {
     return (

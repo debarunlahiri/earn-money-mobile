@@ -303,7 +303,16 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
     return (
       <TouchableOpacity
         style={styles.leadCard}
-        onPress={() => navigation.navigate('LeadDetails', { lead: item })}
+        onPress={() => {
+          const isEditableLead = (item.enq_no || item.status || '')
+            .trim()
+            .toLowerCase() === 'new';
+
+          navigation.navigate('LeadDetails', {
+            lead: item,
+            canEdit: isEditableLead,
+          });
+        }}
         activeOpacity={0.7}>
         {/* Blur Background */}
         <BlurView

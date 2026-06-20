@@ -1,4 +1,4 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo} from 'react';
 import {View, ActivityIndicator, Platform} from 'react-native';
 import {
   NavigationContainer,
@@ -33,6 +33,10 @@ import {AboutScreen} from '../screens/AboutScreen';
 import {NotificationScreen} from '../screens/NotificationScreen';
 import {AdminChatInboxScreen} from '../screens/AdminChatInboxScreen';
 import {AdminChatDetailScreen} from '../screens/AdminChatDetailScreen';
+import {
+  flushPendingNotificationNavigation,
+  navigationRef,
+} from './navigationRef';
 
 const Stack = createNativeStackNavigator();
 
@@ -56,6 +60,15 @@ export const AppNavigator = () => {
     [theme.colors.background, theme.colors.border, theme.colors.primary, theme.colors.text],
   );
 
+  // Check if profile is incomplete using is_new flag from API
+  const isProfileIncomplete = isAuthenticated && userData && userData.is_new === 'yes';
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !isProfileIncomplete) {
+      flushPendingNotificationNavigation();
+    }
+  }, [isAuthenticated, isLoading, isProfileIncomplete]);
+
   if (isLoading) {
     return (
       <View
@@ -69,14 +82,14 @@ export const AppNavigator = () => {
       </View>
     );
   }
-
-  // Check if profile is incomplete using is_new flag from API
-  const isProfileIncomplete = isAuthenticated && userData && userData.is_new === 'yes';
   
   console.log('[Navigator] isAuthenticated:', isAuthenticated, '| is_new:', userData?.is_new, '| isProfileIncomplete:', isProfileIncomplete);
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navigationTheme}
+      onReady={flushPendingNotificationNavigation}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,

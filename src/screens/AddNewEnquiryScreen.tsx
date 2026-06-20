@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  TextInput,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -26,14 +27,26 @@ import {INDIA_STATES} from '../data/indiaStates';
 import {INDIA_CITIES, getCitiesByState} from '../data/indiaCities';
 import {getSectorsByCity} from '../data/indiaSectors';
 import {useAuth} from '../context/AuthContext';
-import {addLead, getPropertyTypes, getPropertySearchFor} from '../services/api';
+import {
+  addLead,
+  getPropertyTypes,
+  getPropertySearchFor,
+  Lead,
+  updateEnquiry,
+} from '../services/api';
 import {
   getFriendlyLocationErrorMessage,
   getReliableCurrentLocation,
 } from '../utils/locationUtils';
 
 interface AddNewEnquiryScreenProps {
-  navigation: any;
+  navigation?: any;
+  route?: {
+    params?: {
+      lead?: Lead;
+      isEditMode?: boolean;
+    };
+  };
 }
 
 const {width: SCREEN_WIDTH} = Dimensions.get('window');
@@ -42,19 +55,85 @@ const DEFAULT_MIN_BUDGET = 0;
 const DEFAULT_MAX_BUDGET = 200000000; // 20 Crores
 const RENT_MAX_BUDGET = 500000; // 5 Lakhs
 const FUTURE_REFERENCE_OPTIONS = ['Yes', 'No', 'Others'];
+type BudgetUnitKey = 'Hundred' | 'Thousand' | 'Lakh' | 'Crore';
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const parseRequirementFields = (requirement: string) =>
+  requirement
+    .split(',')
+    .map(item => item.trim())
+    .reduce<Record<string, string>>((acc, item) => {
+      const separatorIndex = item.indexOf(':');
+
+      if (separatorIndex === -1) {
+        return acc;
+      }
+
+      const key = item.slice(0, separatorIndex).trim();
+      const value = item.slice(separatorIndex + 1).trim();
+
+      if (key) {
+        acc[key] = value;
+      }
+
+      return acc;
+    }, {});
+
+const extractRequirementValue = (requirement: string, label: string) => {
+  const match = requirement.match(
+    new RegExp(`${escapeRegExp(label)}:\\s*([^,]+)`),
+  );
+
+  return match?.[1]?.trim() || '';
+};
+
+const parseBudgetValue = (value: string) => {
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return 0;
+  }
+
+  const numericValue = Number.parseFloat(
+    normalizedValue.replace(/[^0-9.]/g, ''),
+  );
+
+  if (Number.isNaN(numericValue)) {
+    return 0;
+  }
+
+  if (/cr$/i.test(normalizedValue)) {
+    return Math.round(numericValue * 10000000);
+  }
+  if (/l$/i.test(normalizedValue)) {
+    return Math.round(numericValue * 100000);
+  }
+  if (/k$/i.test(normalizedValue)) {
+    return Math.round(numericValue * 1000);
+  }
+
+  return Math.round(numericValue);
+};
 
 export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   navigation,
+  route,
 }) => {
   const {theme, isDark} = useTheme();
   const insets = useSafeAreaInsets();
   const {userData} = useAuth();
+  const editLead = route?.params?.lead;
+  const isEditMode = route?.params?.isEditMode === true && !!editLead?.id;
   const [enquiryFor, setEnquiryFor] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [mobileNumberError, setMobileNumberError] = useState('');
   const [email, setEmail] = useState('');
   const [propertyType, setPropertyType] = useState('');
   const [propertySearchFor, setPropertySearchFor] = useState('');
+  const [flatTower, setFlatTower] = useState('');
+  const [area, setArea] = useState('');
   const [futureReferencePreference, setFutureReferencePreference] = useState('');
   const [futureReferenceOtherName, setFutureReferenceOtherName] = useState('');
   const [showFutureReferencePicker, setShowFutureReferencePicker] =
@@ -62,6 +141,12 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const [propertySearchingIn, setPropertySearchingIn] = useState('');
   const [minBudget, setMinBudget] = useState(0);
   const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
+  const [minBudgetInput, setMinBudgetInput] = useState('0');
+  const [maxBudgetInput, setMaxBudgetInput] = useState('20');
+  const [minBudgetUnitKey, setMinBudgetUnitKey] = useState<BudgetUnitKey>('Crore');
+  const [maxBudgetUnitKey, setMaxBudgetUnitKey] = useState<BudgetUnitKey>('Crore');
+  const [showMinBudgetUnitPicker, setShowMinBudgetUnitPicker] = useState(false);
+  const [showMaxBudgetUnitPicker, setShowMaxBudgetUnitPicker] = useState(false);
   const [showPropertyTypePicker, setShowPropertyTypePicker] = useState(false);
   const [showPropertySearchForPicker, setShowPropertySearchForPicker] =
     useState(false);
@@ -421,24 +506,24 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   const propertyTypeOptions = ['Rent', 'Purchase', 'Plot'];
   const propertySearchOptions = ['Sale', 'Purchase'];
 
-  const getBudgetRangeForPropertySearch = useCallback(
-    (selectedSearchFor: string) => {
-      const normalizedSearchFor = selectedSearchFor.trim().toLowerCase();
+  const getBudgetRangeForSelection = useCallback(
+    (selectedPropertyType: string, selectedSearchFor: string) => {
+      const normalizedValues = [
+        selectedPropertyType.trim().toLowerCase(),
+        selectedSearchFor.trim().toLowerCase(),
+      ];
 
-      if (normalizedSearchFor === 'rent') {
+      const isRentSelection = normalizedValues.some(
+        value =>
+          value === 'rent' ||
+          value === 'give rent' ||
+          value === 'take rent',
+      );
+
+      if (isRentSelection) {
         return {
           min: DEFAULT_MIN_BUDGET,
           max: RENT_MAX_BUDGET,
-        };
-      }
-
-      if (
-        normalizedSearchFor === 'purchase' ||
-        normalizedSearchFor === 'plot'
-      ) {
-        return {
-          min: DEFAULT_MIN_BUDGET,
-          max: DEFAULT_MAX_BUDGET,
         };
       }
 
@@ -450,7 +535,13 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     [],
   );
 
-  const budgetRange = getBudgetRangeForPropertySearch(propertySearchFor);
+  const budgetRange = getBudgetRangeForSelection(
+    propertyType,
+    propertySearchFor,
+  );
+  const shouldShowFlatTowerField = ['sale', 'give rent'].includes(
+    propertyType.trim().toLowerCase(),
+  );
 
   const formatEnquiryName = (text: string) => {
     if (text.length === 0) {
@@ -499,6 +590,138 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     return value.toString();
   };
 
+  const shouldCapAtLakh = budgetRange.max <= RENT_MAX_BUDGET;
+  const budgetUnitOptions: BudgetUnitKey[] = shouldCapAtLakh
+    ? ['Hundred', 'Thousand', 'Lakh']
+    : ['Hundred', 'Thousand', 'Lakh', 'Crore'];
+  const getBudgetUnitConfig = useCallback((unitKey: BudgetUnitKey) => {
+    switch (unitKey) {
+      case 'Hundred':
+        return {label: 'Hundred', divisor: 100, decimals: 0};
+      case 'Thousand':
+        return {label: 'Thousand', divisor: 1000, decimals: 2};
+      case 'Lakh':
+        return {label: 'Lakh', divisor: 100000, decimals: 2};
+      case 'Crore':
+      default:
+        return {label: 'Crore', divisor: 10000000, decimals: 2};
+    }
+  }, []);
+  const minBudgetUnit = getBudgetUnitConfig(minBudgetUnitKey);
+  const maxBudgetUnit = getBudgetUnitConfig(maxBudgetUnitKey);
+
+  const formatBudgetInputValue = useCallback(
+    (value: number, divisor: number, decimals: number) => {
+      const convertedValue = value / divisor;
+      const fixedValue = convertedValue.toFixed(decimals);
+
+      return fixedValue.replace(/\.?0+$/, '');
+    },
+    [],
+  );
+
+  const sanitizeBudgetInput = useCallback((text: string) => {
+    const cleanedText = text.replace(/[^0-9.]/g, '');
+    const parts = cleanedText.split('.');
+
+    if (parts.length <= 1) {
+      return cleanedText;
+    }
+
+    return `${parts[0]}.${parts.slice(1).join('')}`;
+  }, []);
+
+  const syncBudgetInputs = useCallback(() => {
+    setMinBudgetInput(
+      formatBudgetInputValue(
+        minBudget,
+        minBudgetUnit.divisor,
+        minBudgetUnit.decimals,
+      ),
+    );
+    setMaxBudgetInput(
+      formatBudgetInputValue(
+        maxBudget,
+        maxBudgetUnit.divisor,
+        maxBudgetUnit.decimals,
+      ),
+    );
+  }, [
+    formatBudgetInputValue,
+    maxBudget,
+    maxBudgetUnit.decimals,
+    maxBudgetUnit.divisor,
+    minBudget,
+    minBudgetUnit.decimals,
+    minBudgetUnit.divisor,
+  ]);
+
+  const applyBudgetInputValue = useCallback(
+    (type: 'min' | 'max', inputValue: string) => {
+      if (!inputValue) {
+        syncBudgetInputs();
+        return;
+      }
+
+      const parsedValue = Number.parseFloat(inputValue);
+
+      if (Number.isNaN(parsedValue)) {
+        syncBudgetInputs();
+        return;
+      }
+
+      const rawValue = Math.round(
+        parsedValue *
+          (type === 'min' ? minBudgetUnit.divisor : maxBudgetUnit.divisor),
+      );
+
+      if (type === 'min') {
+        const nextMinBudget = Math.max(
+          budgetRange.min,
+          Math.min(rawValue, maxBudget),
+        );
+        setMinBudget(nextMinBudget);
+        return;
+      }
+
+      const nextMaxBudget = Math.min(
+        budgetRange.max,
+        Math.max(rawValue, minBudget),
+      );
+      setMaxBudget(nextMaxBudget);
+    },
+    [
+      budgetRange.max,
+      budgetRange.min,
+      maxBudget,
+      maxBudgetUnit.divisor,
+      minBudget,
+      minBudgetUnit.divisor,
+      syncBudgetInputs,
+    ],
+  );
+
+  const handleBudgetInputChange = useCallback(
+    (type: 'min' | 'max', text: string) => {
+      const sanitizedValue = sanitizeBudgetInput(text);
+
+      if (type === 'min') {
+        setMinBudgetInput(sanitizedValue);
+      } else {
+        setMaxBudgetInput(sanitizedValue);
+      }
+
+      if (
+        sanitizedValue &&
+        sanitizedValue !== '.' &&
+        !sanitizedValue.endsWith('.')
+      ) {
+        applyBudgetInputValue(type, sanitizedValue);
+      }
+    },
+    [applyBudgetInputValue, sanitizeBudgetInput],
+  );
+
   const minPanResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -508,7 +731,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     onPanResponderMove: (_, gestureState) => {
       const touchX = gestureState.moveX - trackLayout.pageX;
       const newValue = getValueFromPosition(touchX);
-      if (newValue < maxBudget && newValue >= budgetRange.min) {
+      if (newValue <= maxBudget && newValue >= budgetRange.min) {
         setMinBudget(newValue);
       }
     },
@@ -526,7 +749,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
     onPanResponderMove: (_, gestureState) => {
       const touchX = gestureState.moveX - trackLayout.pageX;
       const newValue = getValueFromPosition(touchX);
-      if (newValue > minBudget && newValue <= budgetRange.max) {
+      if (newValue >= minBudget && newValue <= budgetRange.max) {
         setMaxBudget(newValue);
       }
     },
@@ -580,18 +803,21 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
       const requirementDetails = [
         `Property Type: ${propertyType}`,
         `Property Search: ${propertySearchFor}`,
+        flatTower.trim() && `Flat/Tower: ${flatTower.trim()}`,
+        area.trim() && `Area: ${area.trim()} square feet`,
         `Budget: ${formatCurrency(minBudget)} - ${formatCurrency(maxBudget)}`,
         `Use Name for this lead reference: ${futureReferencePreference}`,
         futureReferencePreference === 'Others' &&
           futureReferenceOtherName.trim() &&
           `Reference Name: ${futureReferenceOtherName.trim()}`,
+        pincode.trim() && `Pincode: ${pincode.trim()}`,
         getStateName(selectedState) && `State: ${getStateName(selectedState)}`,
         getCityName(selectedCity) && `City: ${getCityName(selectedCity)}`,
         getSectorName(selectedSector) && `Sector: ${getSectorName(selectedSector)}`,
         email && `Email: ${email}`,
       ].filter(Boolean).join(', ');
 
-      const response = await addLead({
+      const payload = {
         userid: userData.userid,
         token: userData.token,
         leadname: enquiryFor.trim(),
@@ -601,16 +827,27 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
         property_for: propertySearchFor.trim().toLowerCase(),
         property_type: propertyType.trim(),
         budget: maxBudget.toString(),
+        tower: flatTower.trim() || undefined,
         use_my_name: futureReferencePreference,
         reference_name:
           futureReferencePreference === 'Others'
             ? futureReferenceOtherName.trim()
             : undefined,
-      });
+      };
+
+      const response = isEditMode
+        ? await updateEnquiry({
+            lead_id: editLead!.id,
+            ...payload,
+          })
+        : await addLead(payload);
 
       if (response.status === 'success') {
         showDialog(
-          response.message || 'Enquiry submitted successfully!',
+          response.message ||
+            (isEditMode
+              ? 'Enquiry updated successfully!'
+              : 'Enquiry submitted successfully!'),
           'Success',
           'success',
           () => navigation.goBack(),
@@ -635,15 +872,40 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
   };
 
   useEffect(() => {
+    if (isEditMode) {
+      return;
+    }
     setMinBudget(budgetRange.min);
     setMaxBudget(budgetRange.max);
-  }, [budgetRange.max, budgetRange.min]);
+  }, [budgetRange.max, budgetRange.min, isEditMode]);
+
+  useEffect(() => {
+    syncBudgetInputs();
+  }, [syncBudgetInputs]);
 
   useEffect(() => {
     if (futureReferencePreference !== 'Others') {
       setFutureReferenceOtherName('');
     }
   }, [futureReferencePreference]);
+
+  useEffect(() => {
+    if (shouldCapAtLakh) {
+      if (minBudgetUnitKey === 'Crore') {
+        setMinBudgetUnitKey('Lakh');
+      }
+      if (maxBudgetUnitKey === 'Crore') {
+        setMaxBudgetUnitKey('Lakh');
+      }
+    }
+  }, [maxBudgetUnitKey, minBudgetUnitKey, shouldCapAtLakh]);
+
+  useEffect(() => {
+    if (!shouldShowFlatTowerField) {
+      setFlatTower('');
+      setArea('');
+    }
+  }, [shouldShowFlatTowerField]);
 
   useEffect(() => {
     if (futureReferencePreference === 'Others') {
@@ -659,6 +921,96 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
       futureReferenceAnim.setValue(0);
     }
   }, [futureReferenceAnim, futureReferencePreference]);
+
+  useEffect(() => {
+    if (!isEditMode || !editLead) {
+      return;
+    }
+
+    const requirement = editLead.requirement || '';
+    const requirementFields = parseRequirementFields(requirement);
+    const budgetValue =
+      requirementFields.Budget || extractRequirementValue(requirement, 'Budget');
+    const [minBudgetValue, maxBudgetValue] = budgetValue
+      .split('-')
+      .map(value => parseBudgetValue(value));
+    const propertyTypeValue =
+      requirementFields['Property Type'] ||
+      extractRequirementValue(requirement, 'Property Type');
+    const propertySearchValue =
+      requirementFields['Property Search'] ||
+      requirementFields['Property Search For'] ||
+      extractRequirementValue(requirement, 'Property Search');
+    const futureReferenceValue =
+      requirementFields['Use Name for this lead reference'] ||
+      extractRequirementValue(requirement, 'Use Name for this lead reference');
+    const stateName =
+      requirementFields.State || extractRequirementValue(requirement, 'State');
+    const cityName =
+      requirementFields.City || extractRequirementValue(requirement, 'City');
+    const pincodeValue =
+      requirementFields.Pincode ||
+      extractRequirementValue(requirement, 'Pincode');
+    const sectorName =
+      requirementFields.Sector ||
+      extractRequirementValue(requirement, 'Sector');
+
+    setEnquiryFor(editLead.name || '');
+    setMobileNumber(editLead.mobile || '');
+    setPropertySearchingIn(editLead.address || '');
+    setPropertyType(propertyTypeValue);
+    setPropertySearchFor(propertySearchValue);
+    setFlatTower(
+      requirementFields['Flat/Tower'] ||
+        extractRequirementValue(requirement, 'Flat/Tower'),
+    );
+    setArea(
+      (
+        requirementFields.Area || extractRequirementValue(requirement, 'Area')
+      ).replace(
+        /\s*(square feet|sq\.?\s*ft\.?)$/i,
+        '',
+      ),
+    );
+    setEmail(
+      requirementFields.Email || extractRequirementValue(requirement, 'Email'),
+    );
+    setFutureReferencePreference(futureReferenceValue);
+    setFutureReferenceOtherName(
+      requirementFields['Reference Name'] ||
+        extractRequirementValue(requirement, 'Reference Name'),
+    );
+    setPincode(pincodeValue);
+    setSector(sectorName);
+
+    const matchedState = INDIA_STATES.find(
+      item => item.name.toLowerCase() === stateName.toLowerCase(),
+    );
+    if (matchedState) {
+      setSelectedState(matchedState.id);
+
+      const matchedCity = getCitiesByState(matchedState.id).find(
+        item => item.name.toLowerCase() === cityName.toLowerCase(),
+      );
+      if (matchedCity) {
+        setSelectedCity(matchedCity.id);
+
+        const matchedSector = getSectorsByCity(matchedCity.id).find(
+          item => item.name.toLowerCase() === sectorName.toLowerCase(),
+        );
+        if (matchedSector) {
+          setSelectedSector(matchedSector.id);
+        }
+      }
+    }
+
+    if (budgetValue) {
+      setMinBudget(minBudgetValue || 0);
+      if (maxBudgetValue > 0) {
+        setMaxBudget(maxBudgetValue);
+      }
+    }
+  }, [editLead, isEditMode]);
 
   return (
     <View
@@ -682,7 +1034,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
           <Icon name="arrow-back" size={24} color={theme.colors.text} />
         </EnhancedTouchable>
         <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
-          Add New Enquiry
+          {isEditMode ? 'Update Enquiry' : 'Add New Enquiry'}
         </Text>
         <View style={styles.placeholder} />
       </View>
@@ -926,6 +1278,50 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             )}
           </View>
 
+          {shouldShowFlatTowerField && (
+            <>
+              <Input
+                label="Flat / Tower"
+                value={flatTower}
+                onChangeText={text => setFlatTower(formatEnquiryName(text))}
+                placeholder="Enter flat and tower"
+                autoCapitalize="words"
+                leftIcon={
+                  <Icon
+                    name="business"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                }
+              />
+
+              <Input
+                label="Area"
+                value={area}
+                onChangeText={text => setArea(text.replace(/\D/g, ''))}
+                placeholder="Enter area"
+                keyboardType="numeric"
+                leftIcon={
+                  <Icon
+                    name="square-foot"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                }
+                rightIcon={
+                  <Text
+                    style={{
+                      color: theme.colors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: '500',
+                    }}>
+                    sq ft
+                  </Text>
+                }
+              />
+            </>
+          )}
+
           <Input
             label="Property Searching In (Address) *"
             value={propertySearchingIn}
@@ -1157,7 +1553,7 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
             activeOpacity={1}
             hitSlop={{top: 5, bottom: 5, left: 5, right: 5}}>
             <Input
-              label="Would you like to use your name for future reference? *"
+              label="Would you like to use your name for this lead reference? *"
               value={futureReferencePreference}
               placeholder="Select an option"
               editable={false}
@@ -1275,9 +1671,81 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                   ]}>
                   Min
                 </Text>
-                <Text style={[styles.budgetValue, {color: theme.colors.text}]}>
-                  {formatCurrency(minBudget)}
-                </Text>
+                <View
+                  style={[
+                    styles.budgetInputContainer,
+                    {
+                      backgroundColor: 'rgba(139, 69, 19, 0.08)',
+                      borderColor: 'rgba(212, 175, 55, 0.35)',
+                    },
+                  ]}>
+                  <TextInput
+                    value={minBudgetInput}
+                    onChangeText={text => handleBudgetInputChange('min', text)}
+                    onBlur={() => applyBudgetInputValue('min', minBudgetInput)}
+                    keyboardType="decimal-pad"
+                    style={[styles.budgetInput, {color: theme.colors.text}]}
+                    placeholder="0"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    textAlign="center"
+                  />
+                  <TouchableOpacity
+                    style={styles.budgetUnitSelector}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setShowMinBudgetUnitPicker(prev => !prev);
+                      setShowMaxBudgetUnitPicker(false);
+                    }}>
+                    <Text
+                      style={[
+                        styles.budgetUnitText,
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      {minBudgetUnit.label}
+                    </Text>
+                    <Icon
+                      name="arrow-drop-down"
+                      size={18}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+                {showMinBudgetUnitPicker && (
+                  <View
+                    style={[
+                      styles.budgetUnitPicker,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}>
+                    {budgetUnitOptions.map(option => (
+                      <TouchableOpacity
+                        key={`min-${option}`}
+                        style={[
+                          styles.budgetUnitPickerItem,
+                          {borderBottomColor: theme.colors.border},
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setMinBudgetUnitKey(option);
+                          setShowMinBudgetUnitPicker(false);
+                        }}>
+                        <Text
+                          style={[
+                            styles.budgetUnitPickerText,
+                            {
+                              color: theme.colors.text,
+                              fontWeight:
+                                minBudgetUnitKey === option ? '600' : '400',
+                            },
+                          ]}>
+                          {option}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
               <View style={styles.budgetValueItem}>
                 <Text
@@ -1287,9 +1755,81 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
                   ]}>
                   Max
                 </Text>
-                <Text style={[styles.budgetValue, {color: theme.colors.text}]}>
-                  {formatCurrency(maxBudget)}
-                </Text>
+                <View
+                  style={[
+                    styles.budgetInputContainer,
+                    {
+                      backgroundColor: 'rgba(139, 69, 19, 0.08)',
+                      borderColor: 'rgba(212, 175, 55, 0.35)',
+                    },
+                  ]}>
+                  <TextInput
+                    value={maxBudgetInput}
+                    onChangeText={text => handleBudgetInputChange('max', text)}
+                    onBlur={() => applyBudgetInputValue('max', maxBudgetInput)}
+                    keyboardType="decimal-pad"
+                    style={[styles.budgetInput, {color: theme.colors.text}]}
+                    placeholder="0"
+                    placeholderTextColor={theme.colors.textSecondary}
+                    textAlign="center"
+                  />
+                  <TouchableOpacity
+                    style={styles.budgetUnitSelector}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setShowMaxBudgetUnitPicker(prev => !prev);
+                      setShowMinBudgetUnitPicker(false);
+                    }}>
+                    <Text
+                      style={[
+                        styles.budgetUnitText,
+                        {color: theme.colors.textSecondary},
+                      ]}>
+                      {maxBudgetUnit.label}
+                    </Text>
+                    <Icon
+                      name="arrow-drop-down"
+                      size={18}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+                {showMaxBudgetUnitPicker && (
+                  <View
+                    style={[
+                      styles.budgetUnitPicker,
+                      {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.border,
+                      },
+                    ]}>
+                    {budgetUnitOptions.map(option => (
+                      <TouchableOpacity
+                        key={`max-${option}`}
+                        style={[
+                          styles.budgetUnitPickerItem,
+                          {borderBottomColor: theme.colors.border},
+                        ]}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setMaxBudgetUnitKey(option);
+                          setShowMaxBudgetUnitPicker(false);
+                        }}>
+                        <Text
+                          style={[
+                            styles.budgetUnitPickerText,
+                            {
+                              color: theme.colors.text,
+                              fontWeight:
+                                maxBudgetUnitKey === option ? '600' : '400',
+                            },
+                          ]}>
+                          {option}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             </View>
 
@@ -1365,7 +1905,15 @@ export const AddNewEnquiryScreen: React.FC<AddNewEnquiryScreenProps> = ({
           </View>
 
           <Button
-            title={isSubmitting ? "Submitting..." : "Submit Enquiry"}
+            title={
+              isSubmitting
+                ? isEditMode
+                  ? 'Updating...'
+                  : 'Submitting...'
+                : isEditMode
+                  ? 'Update Enquiry'
+                  : 'Submit Enquiry'
+            }
             onPress={handleSubmit}
             style={styles.submitButton}
             loading={isSubmitting}
@@ -1472,6 +2020,8 @@ const styles = StyleSheet.create({
   budgetValueItem: {
     flex: 1,
     alignItems: 'center',
+    position: 'relative',
+    zIndex: 2,
   },
   budgetLabel: {
     fontSize: 12,
@@ -1481,6 +2031,54 @@ const styles = StyleSheet.create({
   budgetValue: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  budgetInputContainer: {
+    minWidth: 110,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  budgetInput: {
+    minWidth: 64,
+    fontSize: 20,
+    fontWeight: '700',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+  },
+  budgetUnitSelector: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  budgetUnitText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  budgetUnitPicker: {
+    position: 'absolute',
+    top: 94,
+    width: 120,
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+    zIndex: 20,
+    elevation: 10,
+  },
+  budgetUnitPickerItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+  },
+  budgetUnitPickerText: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   sliderContainer: {
     marginTop: 8,
