@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {
   View,
   Text,
@@ -14,46 +14,77 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from '@react-native-community/blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../theme/ThemeContext';
+import {useFocusEffect} from '@react-navigation/native';
+import {LinearGradient} from 'expo-linear-gradient';
+import {BlurView} from '@react-native-community/blur';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { FallingRupees } from '../components/FallingRupee';
-import { useScrollVisibility } from '../context/ScrollVisibilityContext';
-import { useAuth } from '../context/AuthContext';
-import { viewLeads, Lead, getProfileWithLeads, SliderItem, LeadsSummaryItem } from '../services/api';
-import { Carousel, CarouselItem } from '../components/Carousel';
-import { Logo } from '../components/Logo';
-import { getFCMToken } from '../services/fcmService';
+import {FallingRupees} from '../components/FallingRupee';
+import {useScrollVisibility} from '../context/ScrollVisibilityContext';
+import {useAuth} from '../context/AuthContext';
+import {
+  Lead,
+  filterLeads,
+  getProfileWithLeads,
+  searchLeads,
+  SliderItem,
+  LeadsSummaryItem,
+} from '../services/api';
+import {Carousel, CarouselItem} from '../components/Carousel';
+import {Logo} from '../components/Logo';
+import {getFCMToken} from '../services/fcmService';
+import {LeadFilter, LeadSearchFilter} from '../components/LeadSearchFilter';
 
 interface MyLeadsScreenProps {
   navigation: any;
   hideHeader?: boolean;
 }
 
-type FilterType = 'all' | 'new' | 'contacted' | 'converted';
 type SortType = 'newest' | 'oldest' | 'name';
+
+const PAGE_LIMIT = 10;
+
+const mergeUniqueLeads = (current: Lead[], incoming: Lead[]): Lead[] => {
+  const leadsById = new Map<string, Lead>();
+
+  current.forEach(lead => leadsById.set(String(lead.id), lead));
+  incoming.forEach(lead => leadsById.set(String(lead.id), lead));
+
+  return Array.from(leadsById.values());
+};
 
 export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   navigation,
   hideHeader = false,
 }) => {
-  const { theme } = useTheme();
+  const {theme} = useTheme();
   const insets = useSafeAreaInsets();
-  const { userData } = useAuth();
-  const { handleScroll, headerTranslateY } = useScrollVisibility();
+  const {userData} = useAuth();
+  const {handleScroll, headerTranslateY} = useScrollVisibility();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState<LeadFilter>('all');
+  const [searchResults, setSearchResults] = useState<Lead[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [sortType, setSortType] = useState<SortType>('newest');
   const [sliderItems, setSliderItems] = useState<SliderItem[]>([]);
   const [leadsSummary, setLeadsSummary] = useState<LeadsSummaryItem[]>([]);
   const [profileName, setProfileName] = useState<string>('');
+  const basePageRef = useRef(1);
+  const resultPageRef = useRef(1);
+  const baseHasMoreRef = useRef(true);
+  const loadingMoreRef = useRef(false);
+  const filterTypeRef = useRef(filterType);
+  const searchRef = useRef(search);
+  filterTypeRef.current = filterType;
+  searchRef.current = search;
 
   // Build carousel items from API slider data
   const carouselItems: CarouselItem[] = useMemo(() => {
@@ -80,13 +111,21 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
     return sliderItems.map((item, index) => ({
       id: index.toString(),
       gradient: [
-        index === 0 ? 'rgba(212, 175, 55, 0.2)' : index === 1 ? 'rgba(76, 175, 80, 0.2)' : 'rgba(33, 150, 243, 0.2)',
-        index === 0 ? 'rgba(212, 175, 55, 0.05)' : index === 1 ? 'rgba(76, 175, 80, 0.05)' : 'rgba(33, 150, 243, 0.05)',
+        index === 0
+          ? 'rgba(212, 175, 55, 0.2)'
+          : index === 1
+          ? 'rgba(76, 175, 80, 0.2)'
+          : 'rgba(33, 150, 243, 0.2)',
+        index === 0
+          ? 'rgba(212, 175, 55, 0.05)'
+          : index === 1
+          ? 'rgba(76, 175, 80, 0.05)'
+          : 'rgba(33, 150, 243, 0.05)',
       ],
       component: (
         <View style={styles.carouselCard}>
           <Image
-            source={{ uri: item.img }}
+            source={{uri: item.img}}
             style={styles.carouselImageBackground}
             resizeMode="cover"
           />
@@ -105,43 +144,58 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   const stats = useMemo(() => {
     if (leadsSummary.length > 0) {
       // Use API data
-      const newLeads = leadsSummary.find(item => item.new !== undefined)?.new || 0;
-      const processing = leadsSummary.find(item => item.processing !== undefined)?.processing || 0;
-      const cancelled = leadsSummary.find(item => item.cancelled !== undefined)?.cancelled || 0;
-      const converted = leadsSummary.find(item => item.converted !== undefined)?.converted || 0;
+      const newLeads =
+        leadsSummary.find(item => item.new !== undefined)?.new || 0;
+      const processing =
+        leadsSummary.find(item => item.processing !== undefined)?.processing ||
+        0;
+      const cancelled =
+        leadsSummary.find(item => item.cancelled !== undefined)?.cancelled || 0;
+      const converted =
+        leadsSummary.find(item => item.converted !== undefined)?.converted || 0;
       const total = newLeads + processing + cancelled + converted;
-      const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
+      const conversionRate =
+        total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
 
-      return { total, newLeads, contacted: processing, converted, conversionRate, cancelled };
+      return {
+        total,
+        newLeads,
+        contacted: processing,
+        converted,
+        conversionRate,
+        cancelled,
+      };
     } else {
       // Fallback to computed from leads array
       const total = leads.length;
       const newLeads = leads.filter(l => l.status === 'new').length;
-      const contacted = leads.filter(l => l.status === 'contacted' || l.status === 'processing').length;
+      const contacted = leads.filter(
+        l => l.status === 'contacted' || l.status === 'processing',
+      ).length;
       const converted = leads.filter(l => l.status === 'converted').length;
       const cancelled = leads.filter(l => l.status === 'cancelled').length;
-      const conversionRate = total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
+      const conversionRate =
+        total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
 
-      return { total, newLeads, contacted, converted, conversionRate, cancelled };
+      return {total, newLeads, contacted, converted, conversionRate, cancelled};
     }
   }, [leads, leadsSummary]);
 
   // Filtered and sorted leads
   const filteredAndSortedLeads = useMemo(() => {
-    let filtered = [...leads];
-
-    // Apply filter
-    if (filterType !== 'all') {
-      filtered = filtered.filter(lead => lead.status === filterType);
-    }
+    const filtered = [...(searchResults ?? leads)];
 
     // Apply sort
     filtered.sort((a, b) => {
       switch (sortType) {
         case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
         case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          return (
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
         case 'name':
           return a.name.localeCompare(b.name);
         default:
@@ -150,77 +204,210 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
     });
 
     return filtered;
-  }, [leads, filterType, sortType]);
+  }, [leads, searchResults, sortType]);
 
-  const fetchLeads = useCallback(async () => {
-    if (!userData?.userid || !userData?.token) {
-      setError('Authentication required');
-      setLoading(false);
+  useEffect(() => {
+    const hasSearchCriteria = search.trim().length > 0 || filterType !== 'all';
+
+    if (!hasSearchCriteria) {
+      setSearchResults(null);
+      setSearching(false);
+      setHasMore(baseHasMoreRef.current);
       return;
     }
 
-    try {
-      setError(null);
-      const fcmToken = await getFCMToken();
+    if (!userData?.userid || !userData?.token) {
+      return;
+    }
 
-      // Use the new profile API that returns everything
-      const response = await getProfileWithLeads(
-        userData.userid,
-        userData.token,
-        fcmToken || undefined,
-      );
+    let active = true;
+    const timeout = setTimeout(
+      async () => {
+        setSearching(true);
+        try {
+          const results = search.trim()
+            ? await searchLeads(
+                userData.userid,
+                userData.token,
+                search,
+                filterType,
+              )
+            : await filterLeads(
+                userData.userid,
+                userData.token,
+                filterType,
+                1,
+                10,
+              );
+          if (active) {
+            resultPageRef.current = 1;
+            setSearchResults(mergeUniqueLeads([], results));
+            setHasMore(!search.trim() && results.length === PAGE_LIMIT);
+          }
+        } catch (searchError) {
+          console.error('Error searching leads:', searchError);
+          if (active) {
+            setSearchResults([]);
+          }
+        } finally {
+          if (active) {
+            setSearching(false);
+          }
+        }
+      },
+      search.trim() ? 600 : 0,
+    );
 
-      if (response.status === 'success') {
-        // Set leads from view_leads
-        if (response.view_leads) {
-          setLeads(response.view_leads);
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [filterType, search, userData]);
+
+  const fetchLeads = useCallback(
+    async (page = 1, append = false) => {
+      if (!userData?.userid || !userData?.token) {
+        setError('Authentication required');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setError(null);
+        const fcmToken = page === 1 ? await getFCMToken() : null;
+
+        // Use the new profile API that returns everything
+        const response = await getProfileWithLeads(
+          userData.userid,
+          userData.token,
+          fcmToken || undefined,
+          page,
+          PAGE_LIMIT,
+        );
+
+        if (response.status === 'success') {
+          // Set leads from view_leads
+          if (response.view_leads) {
+            setLeads(currentLeads =>
+              append
+                ? mergeUniqueLeads(currentLeads, response.view_leads || [])
+                : mergeUniqueLeads([], response.view_leads || []),
+            );
+            basePageRef.current = page;
+            baseHasMoreRef.current = response.view_leads.length === PAGE_LIMIT;
+            if (filterTypeRef.current === 'all' && !searchRef.current.trim()) {
+              setHasMore(baseHasMoreRef.current);
+            }
+          } else {
+            if (!append) {
+              setLeads([]);
+            }
+            baseHasMoreRef.current = false;
+            setHasMore(false);
+          }
+
+          // Set slider items
+          if (response.slider) {
+            setSliderItems(response.slider);
+          }
+
+          // Set leads summary
+          if (response.leads_summary) {
+            setLeadsSummary(response.leads_summary);
+          }
+
+          // Set profile name
+          if (response.userdata?.username) {
+            setProfileName(response.userdata.username);
+          }
         } else {
+          setError(response.message || 'Failed to fetch data');
+          if (!append) {
+            setLeads([]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching leads:', err);
+        setError('An error occurred while fetching data');
+        if (!append) {
           setLeads([]);
         }
-
-        // Set slider items
-        if (response.slider) {
-          setSliderItems(response.slider);
-        }
-
-        // Set leads summary
-        if (response.leads_summary) {
-          setLeadsSummary(response.leads_summary);
-        }
-
-        // Set profile name
-        if (response.userdata?.username) {
-          setProfileName(response.userdata.username);
-        }
-      } else {
-        setError(response.message || 'Failed to fetch data');
-        setLeads([]);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
       }
-    } catch (err) {
-      console.error('Error fetching leads:', err);
-      setError('An error occurred while fetching data');
-      setLeads([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [userData]);
-
-  useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    },
+    [userData],
+  );
 
   // Refresh leads when screen comes into focus (after adding new lead)
   useFocusEffect(
     useCallback(() => {
       fetchLeads();
-    }, [fetchLeads])
+    }, [fetchLeads]),
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchLeads();
+    basePageRef.current = 1;
+    fetchLeads(1, false);
   }, [fetchLeads]);
+
+  const loadMoreLeads = useCallback(async () => {
+    if (
+      loading ||
+      loadingMoreRef.current ||
+      searching ||
+      !hasMore ||
+      search.trim().length > 0 ||
+      !userData?.userid ||
+      !userData?.token
+    ) {
+      return;
+    }
+
+    const nextPage =
+      filterType === 'all'
+        ? basePageRef.current + 1
+        : resultPageRef.current + 1;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+
+    try {
+      if (filterType === 'all') {
+        await fetchLeads(nextPage, true);
+        return;
+      }
+
+      const nextLeads = await filterLeads(
+        userData.userid,
+        userData.token,
+        filterType,
+        nextPage,
+        PAGE_LIMIT,
+      );
+      setSearchResults(currentResults =>
+        mergeUniqueLeads(currentResults || [], nextLeads),
+      );
+      resultPageRef.current = nextPage;
+      setHasMore(nextLeads.length === PAGE_LIMIT);
+    } catch (paginationError) {
+      console.error('Error loading more leads:', paginationError);
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [
+    fetchLeads,
+    filterType,
+    hasMore,
+    loading,
+    loadingMore,
+    search,
+    searching,
+    userData,
+  ]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -242,7 +429,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
     Linking.openURL(`whatsapp://send?phone=91${mobile}`);
   };
 
-  const renderItem = ({ item, index }: { item: Lead; index: number }) => {
+  const renderItem = ({item, index}: {item: Lead; index: number}) => {
     const getInitials = (name: string) => {
       return name
         .split(' ')
@@ -294,19 +481,19 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
       if (diffMins < 1) return 'Just now';
       if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      if (diffHours < 24)
+        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
       if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
 
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      return date.toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
     };
 
     return (
       <TouchableOpacity
         style={styles.leadCard}
         onPress={() => {
-          const isEditableLead = (item.enq_no || item.status || '')
-            .trim()
-            .toLowerCase() === 'new';
+          const isEditableLead =
+            (item.enq_no || item.status || '').trim().toLowerCase() === 'new';
 
           navigation.navigate('LeadDetails', {
             lead: item,
@@ -329,8 +516,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
             <View style={styles.leadAvatar}>
               <LinearGradient
                 colors={['#D4AF37', '#AA8C2C']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
                 style={styles.avatarGradient}>
                 <Text style={styles.avatarText}>{getInitials(item.name)}</Text>
               </LinearGradient>
@@ -348,16 +535,26 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
               <View
                 style={[
                   styles.statusDot,
-                  { backgroundColor: getStatusColor(item.status) },
+                  {backgroundColor: getStatusColor(item.status)},
                 ]}
               />
-              <Text style={[styles.leadStatus, { color: getStatusColor(item.status) }]}>
+              <Text
+                style={[
+                  styles.leadStatus,
+                  {color: getStatusColor(item.status)},
+                ]}>
                 {getStatusLabel(item.status)}
               </Text>
             </View>
             <View style={styles.leadTimestamp}>
-              <Icon name="access-time" size={12} color="rgba(255, 255, 255, 0.4)" />
-              <Text style={styles.timestampText}>{formatTime(item.created_at)}</Text>
+              <Icon
+                name="access-time"
+                size={12}
+                color="rgba(255, 255, 255, 0.4)"
+              />
+              <Text style={styles.timestampText}>
+                {formatTime(item.created_at)}
+              </Text>
             </View>
           </View>
         </View>
@@ -367,7 +564,11 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           <View style={styles.leadRequirementSection}>
             <View style={styles.requirementDivider} />
             <View style={styles.requirementContent}>
-              <Icon name="description" size={14} color="rgba(212, 175, 55, 0.7)" />
+              <Icon
+                name="description"
+                size={14}
+                color="rgba(212, 175, 55, 0.7)"
+              />
               <Text style={styles.requirementText} numberOfLines={2}>
                 {item.requirement}
               </Text>
@@ -380,6 +581,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
   const renderEmpty = () => {
     if (loading) return null;
+
+    const hasSearchCriteria = search.trim().length > 0 || filterType !== 'all';
 
     return (
       <View style={styles.emptyContainer}>
@@ -394,8 +597,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
             {/* Main icon circle */}
             <LinearGradient
               colors={['#F5D78E', '#D4AF37']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
               style={styles.emptyIconCircle}>
               <Icon name="inbox" size={70} color="#1a1a1a" />
             </LinearGradient>
@@ -403,19 +606,26 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
           {/* Title section */}
           <View style={styles.emptyTitleSection}>
-            <Text style={styles.emptyTitle}>No Leads Yet</Text>
+            <Text style={styles.emptyTitle}>
+              {hasSearchCriteria ? 'No Matching Leads' : 'No Leads Yet'}
+            </Text>
             <Text style={styles.emptySubtitle}>
-              Start your earning journey by adding{'\n'}your first property enquiry
+              {hasSearchCriteria
+                ? 'Try another search term or status filter'
+                : `Start your earning journey by adding\nyour first property enquiry`}
             </Text>
           </View>
 
           {/* Bottom hint */}
-          <View style={styles.emptyHintContainer}>
-            <View style={styles.emptyHintDot} />
-            <Text style={styles.emptyHintText}>
-              Tap "Add Lead" button above to add property enquiries and start earning
-            </Text>
-          </View>
+          {!hasSearchCriteria && (
+            <View style={styles.emptyHintContainer}>
+              <View style={styles.emptyHintDot} />
+              <Text style={styles.emptyHintText}>
+                Tap "Add Lead" button above to add property enquiries and start
+                earning
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -427,9 +637,11 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         {/* Header Background Extension - matches header solid background */}
         <View style={styles.headerBackgroundExtension}>
           {/* Welcome Section */}
-          <View style={[styles.welcomeSection, { paddingTop: insets.top + 10 }]}>
+          <View style={[styles.welcomeSection, {paddingTop: insets.top + 10}]}>
             <Text style={styles.welcomeText}>Welcome back</Text>
-            <Text style={styles.welcomeName}>Hi, {profileName || userData?.username || 'User'} 👋</Text>
+            <Text style={styles.welcomeName}>
+              Hi, {profileName || userData?.username || 'User'} 👋
+            </Text>
           </View>
 
           {/* Carousel Section - Always show */}
@@ -451,7 +663,14 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
 
             <View style={styles.summaryCardsRow}>
               {/* New Leads Card */}
-              <View style={[styles.summaryCard, styles.summaryCardGreen]}>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  styles.summaryCardGreen,
+                  filterType === 'new' && styles.summaryCardSelected,
+                ]}
+                onPress={() => setFilterType('new')}
+                activeOpacity={0.75}>
                 <BlurView
                   style={StyleSheet.absoluteFillObject}
                   blurType="dark"
@@ -462,10 +681,17 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
                   <Text style={styles.summaryValue}>{stats.newLeads}</Text>
                   <Text style={styles.summaryLabel}>New Leads</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* Processing Card */}
-              <View style={[styles.summaryCard, styles.summaryCardOrange]}>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  styles.summaryCardOrange,
+                  filterType === 'processing' && styles.summaryCardSelected,
+                ]}
+                onPress={() => setFilterType('processing')}
+                activeOpacity={0.75}>
                 <BlurView
                   style={StyleSheet.absoluteFillObject}
                   blurType="dark"
@@ -476,10 +702,17 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
                   <Text style={styles.summaryValue}>{stats.contacted}</Text>
                   <Text style={styles.summaryLabel}>Contacted</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* Cancelled Card */}
-              <View style={[styles.summaryCard, styles.summaryCardPurple]}>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  styles.summaryCardPurple,
+                  filterType === 'cancelled' && styles.summaryCardSelected,
+                ]}
+                onPress={() => setFilterType('cancelled')}
+                activeOpacity={0.75}>
                 <BlurView
                   style={StyleSheet.absoluteFillObject}
                   blurType="dark"
@@ -487,13 +720,22 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
                   reducedTransparencyFallbackColor="rgba(156, 39, 176, 0.2)"
                 />
                 <View style={styles.summaryCardContent}>
-                  <Text style={styles.summaryValue}>{stats.cancelled || 0}</Text>
+                  <Text style={styles.summaryValue}>
+                    {stats.cancelled || 0}
+                  </Text>
                   <Text style={styles.summaryLabel}>Cancelled</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
 
               {/* Converted Card */}
-              <View style={[styles.summaryCard, styles.summaryCardBlue]}>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  styles.summaryCardBlue,
+                  filterType === 'converted' && styles.summaryCardSelected,
+                ]}
+                onPress={() => setFilterType('converted')}
+                activeOpacity={0.75}>
                 <BlurView
                   style={StyleSheet.absoluteFillObject}
                   blurType="dark"
@@ -504,15 +746,25 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
                   <Text style={styles.summaryValue}>{stats.converted}</Text>
                   <Text style={styles.summaryLabel}>Converted</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
         )}
 
+        <LeadSearchFilter
+          search={search}
+          searching={searching}
+          onSearchChange={setSearch}
+        />
+
         {/* Recent Leads Heading - Only show when leads exist */}
         {leads.length > 0 && (
           <View style={styles.recentLeadsContainer}>
-            <Text style={styles.recentLeadsTitle}>Recent Leads</Text>
+            <Text style={styles.recentLeadsTitle}>
+              {search.trim() || filterType !== 'all'
+                ? `Search Results (${filteredAndSortedLeads.length})`
+                : 'Recent Leads'}
+            </Text>
             <TouchableOpacity
               style={styles.viewAllButton}
               onPress={() => navigation.navigate('AllLeads')}
@@ -558,8 +810,17 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           showsVerticalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          ListHeaderComponent={renderHeader}
+          onEndReached={loadMoreLeads}
+          onEndReachedThreshold={0.35}
+          ListHeaderComponent={renderHeader()}
           ListEmptyComponent={renderEmpty}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.paginationLoader}>
+                <ActivityIndicator size="small" color="#D4AF37" />
+              </View>
+            ) : null
+          }
         />
       )}
 
@@ -575,8 +836,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
         activeOpacity={0.8}>
         <LinearGradient
           colors={['#F5D78E', '#D4AF37', '#AA8C2C']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
           style={styles.floatingButtonGradient}>
           <Icon name="add" size={20} color="#000" />
           <Text style={styles.floatingButtonText}>Add Lead</Text>
@@ -638,7 +899,7 @@ const styles = StyleSheet.create({
   },
   addLeadButton: {
     shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
@@ -689,6 +950,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
+  paginationLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 20,
@@ -730,7 +995,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(25, 25, 30, 0.95)',
     shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 10 },
+    shadowOffset: {width: 0, height: 10},
     shadowOpacity: 0.25,
     shadowRadius: 16,
     elevation: 10,
@@ -758,7 +1023,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 6,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 2 },
+    textShadowOffset: {width: 0, height: 2},
     textShadowRadius: 4,
   },
   carouselSubtitle: {
@@ -767,7 +1032,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
+    textShadowOffset: {width: 0, height: 1},
     textShadowRadius: 3,
   },
   // Header Background Extension - transparent to show background
@@ -839,6 +1104,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(33, 150, 243, 0.15)',
     borderColor: 'rgba(33, 150, 243, 0.3)',
   },
+  summaryCardSelected: {
+    borderWidth: 2,
+    borderColor: '#D4AF37',
+  },
   summaryCardContent: {
     paddingVertical: 8,
     paddingHorizontal: 8,
@@ -863,7 +1132,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212, 175, 55, 0.2)',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
@@ -1131,7 +1400,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
@@ -1254,8 +1523,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-
-
   // Recent Leads Heading
   recentLeadsContainer: {
     marginTop: 2,
@@ -1363,7 +1630,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: {width: 0, height: 12},
     shadowOpacity: 0.4,
     shadowRadius: 24,
     elevation: 12,
@@ -1426,7 +1693,7 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 20,
     shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {width: 0, height: 8},
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
@@ -1452,7 +1719,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     shadowColor: '#D4AF37',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {width: 0, height: 8},
     shadowOpacity: 0.5,
     shadowRadius: 16,
     elevation: 10,

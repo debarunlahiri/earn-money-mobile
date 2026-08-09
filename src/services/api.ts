@@ -396,6 +396,130 @@ export interface ViewLeadsResponse {
   data?: Lead[];
 }
 
+export type SearchLeadsResponse =
+  | Lead[]
+  | {
+      status?: string;
+      status_code?: number;
+      message?: string | Lead[];
+      data?: Lead[];
+      view_leads?: Lead[];
+    };
+
+/**
+ * Searches the current user's leads and optionally filters them by status.
+ */
+export const searchLeads = async (
+  userid: string | number,
+  token: string | number,
+  search: string,
+  filterName: string,
+): Promise<Lead[]> => {
+  const formData = new FormData();
+  formData.append('action', 'search_api');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+  formData.append('search', search.trim());
+  formData.append('filter_name', filterName);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await parseJsonResponse<SearchLeadsResponse>(response, []);
+
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+
+    if (!Array.isArray(data)) {
+      checkForAuthError({
+        status: data.status,
+        status_code: data.status_code,
+        message: typeof data.message === 'string' ? data.message : undefined,
+      });
+    }
+
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (Array.isArray(data.data)) {
+      return data.data;
+    }
+    if (Array.isArray(data.view_leads)) {
+      return data.view_leads;
+    }
+    if (Array.isArray(data.message)) {
+      return data.message;
+    }
+
+    return [];
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
+/**
+ * Fetches a paginated set of leads for a selected status.
+ */
+export const filterLeads = async (
+  userid: string | number,
+  token: string | number,
+  filterName: string,
+  page = 1,
+  limit = 10,
+): Promise<Lead[]> => {
+  const formData = new FormData();
+  formData.append('action', 'filter_api');
+  formData.append('userid', userid.toString());
+  formData.append('token', token.toString());
+  formData.append('page', page.toString());
+  formData.append('limit', limit.toString());
+  formData.append('filter_name', filterName);
+
+  const startTime = Date.now();
+  logRequest(API_BASE_URL, 'POST', formData);
+
+  try {
+    const response = await fetch(API_BASE_URL, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await parseJsonResponse<SearchLeadsResponse>(response, []);
+
+    logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
+
+    if (!Array.isArray(data)) {
+      checkForAuthError({
+        status: data.status,
+        status_code: data.status_code,
+        message: typeof data.message === 'string' ? data.message : undefined,
+      });
+    }
+
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (Array.isArray(data.data)) {
+      return data.data;
+    }
+    if (Array.isArray(data.view_leads)) {
+      return data.view_leads;
+    }
+    if (Array.isArray(data.message)) {
+      return data.message;
+    }
+
+    return [];
+  } catch (error) {
+    logError(API_BASE_URL, error, Date.now() - startTime);
+    throw error;
+  }
+};
+
 /**
  * Fetches all leads for the user
  */
@@ -603,7 +727,10 @@ export const viewForwardLeads = async (
         logError(
           API_BASE_URL,
           new Error(
-            `Invalid JSON response for view_forward_leads: ${responseText.slice(0, 300)}`,
+            `Invalid JSON response for view_forward_leads: ${responseText.slice(
+              0,
+              300,
+            )}`,
           ),
           Date.now() - startTime,
         );
@@ -1040,11 +1167,15 @@ export const getProfileWithLeads = async (
   userid: string | number,
   token: string | number,
   expo_token?: string,
+  page = 1,
+  limit = 10,
 ): Promise<ProfileWithLeadsResponse> => {
   const formData = new FormData();
   formData.append('action', 'profile');
   formData.append('userid', userid.toString());
   formData.append('token', token.toString());
+  formData.append('page', page.toString());
+  formData.append('limit', limit.toString());
   if (expo_token) {
     formData.append('expo_token', expo_token);
   }
@@ -1096,7 +1227,9 @@ export const getPropertyTypes = async (): Promise<PropertyTypesResponse> => {
 /**
  * Fetches property search for options from API
  */
-export const getPropertySearchFor = async (propertyType?: string): Promise<PropertySearchForResponse> => {
+export const getPropertySearchFor = async (
+  propertyType?: string,
+): Promise<PropertySearchForResponse> => {
   const formData = new FormData();
   formData.append('action', 'property_for');
   if (propertyType) {
