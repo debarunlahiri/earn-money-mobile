@@ -17,7 +17,6 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import {FallingRupees} from '../components/FallingRupee';
 import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 import {Dialog} from '../components/Dialog';
-import {ADMIN_PHONE_NUMBERS} from '../config/firebase';
 
 interface SettingsScreenProps {
   navigation: any;
@@ -25,15 +24,10 @@ interface SettingsScreenProps {
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
   const {theme} = useTheme();
-  const {logout, userData} = useAuth();
+  const {logout} = useAuth();
   const insets = useSafeAreaInsets();
   const {handleScroll, headerTranslateY} = useScrollVisibility();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-
-  // Check if user is admin
-  const isAdmin = userData?.mobile && ADMIN_PHONE_NUMBERS.includes(
-    userData.mobile.startsWith('+91') ? userData.mobile : `+91${userData.mobile}`
-  );
 
   const handleLogout = async () => {
     await logout();
@@ -79,11 +73,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, {paddingTop: insets.top + 100}]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {paddingTop: insets.top + 100},
+        ]}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}>
-        
         {/* About */}
         <View style={styles.menuItemContainer}>
           <View style={styles.menuItemGlassContainer}>
@@ -96,43 +92,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
               onPress={() => navigation.navigate('About')}
               activeOpacity={0.7}>
               <View style={styles.menuItemLeft}>
-                <View style={[styles.iconContainer, {backgroundColor: 'rgba(33, 150, 243, 0.15)'}]}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    {backgroundColor: 'rgba(33, 150, 243, 0.15)'},
+                  ]}>
                   <Icon name="info" size={22} color="#2196F3" />
                 </View>
                 <Text style={[styles.menuItemText, {color: theme.colors.text}]}>
                   About
                 </Text>
               </View>
-              <Icon name="chevron-right" size={20} color={theme.colors.textSecondary} />
+              <Icon
+                name="chevron-right"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Admin Chat Inbox (Only for admins) */}
-        {isAdmin && (
-          <View style={styles.menuItemContainer}>
-            <View style={styles.menuItemGlassContainer}>
-              <View style={styles.menuItemGlassBaseLayer} />
-              <View style={styles.menuItemGlassFrostLayer} />
-              <View style={styles.menuItemGlassHighlight} />
-              <View style={styles.menuItemGlassInnerBorder} />
-              <TouchableOpacity
-                style={styles.menuItemGlassContent}
-                onPress={() => navigation.navigate('AdminChatInbox')}
-                activeOpacity={0.7}>
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.iconContainer, {backgroundColor: 'rgba(212, 175, 55, 0.15)'}]}>
-                    <Icon name="admin-panel-settings" size={22} color="#D4AF37" />
-                  </View>
-                  <Text style={[styles.menuItemText, {color: theme.colors.text}]}>
-                    Admin Chat Inbox
-                  </Text>
-                </View>
-                <Icon name="chevron-right" size={20} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
 
         {/* Support */}
         {/* <View style={styles.menuItemContainer}>
@@ -171,10 +149,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
                 onPress={() => setShowLogoutDialog(true)}
                 activeOpacity={0.7}>
                 <View style={styles.menuItemLeft}>
-                  <View style={[styles.iconContainer, {backgroundColor: theme.colors.error + '15'}]}>
+                  <View
+                    style={[
+                      styles.iconContainer,
+                      {backgroundColor: theme.colors.error + '15'},
+                    ]}>
                     <Icon name="logout" size={22} color={theme.colors.error} />
                   </View>
-                  <Text style={[styles.logoutText, {color: theme.colors.error}]}>
+                  <Text
+                    style={[styles.logoutText, {color: theme.colors.error}]}>
                     Logout
                   </Text>
                 </View>

@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect, useCallback, useRef} from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,10 @@ import {
   StatusBar,
   ImageBackground,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {BlurView} from '@react-native-community/blur';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import {useAuth} from '../context/AuthContext';
 import {viewLeads, Lead} from '../services/api';
@@ -23,8 +21,77 @@ interface AllLeadsScreenProps {
   navigation: any;
 }
 
+const PAGE_LIMIT = 10;
+
+const getLeadKey = (lead: Lead) => String(lead.id);
+
+const mergeUniqueLeads = (current: Lead[], incoming: Lead[]) => {
+  const leadsById = new Map(current.map(lead => [getLeadKey(lead), lead]));
+
+  incoming.forEach(lead => {
+    leadsById.set(getLeadKey(lead), lead);
+  });
+
+  return Array.from(leadsById.values());
+};
+
+const getInitials = (name: string) =>
+  name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'new':
+      return '#4CAF50';
+    case 'contacted':
+    case 'processing':
+      return '#FF9800';
+    case 'converted':
+      return '#2196F3';
+    case 'cancelled':
+      return '#F44336';
+    default:
+      return '#888';
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case 'contacted':
+    case 'processing':
+      return 'Contacted';
+    case 'new':
+      return 'New Lead';
+    case 'converted':
+      return 'Converted';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status;
+  }
+};
+
+const formatRelativeTime = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+
+  return date.toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
+};
+
 export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
-  const {theme} = useTheme();
   const insets = useSafeAreaInsets();
   const {userData} = useAuth();
 
@@ -32,114 +99,92 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const pageRef = useRef(1);
+  const loadingMoreRef = useRef(false);
 
-  const fetchLeads = useCallback(async () => {
-    if (!userData?.userid || !userData?.token) {
-      setError('Authentication required');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setError(null);
-      const response = await viewLeads(userData.userid, userData.token);
-
-      if (response.status === 'success' && response.data) {
-        setLeads(response.data);
-      } else {
-        setError(response.message || 'Failed to fetch leads');
-        setLeads([]);
+  const fetchLeads = useCallback(
+    async (page = 1, append = false) => {
+      if (!userData?.userid || !userData?.token) {
+        setError('Authentication required');
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.error('Error fetching leads:', err);
-      setError('An error occurred while fetching leads');
-      setLeads([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [userData]);
+
+      try {
+        setError(null);
+        const response = await viewLeads(
+          userData.userid,
+          userData.token,
+          page,
+          PAGE_LIMIT,
+        );
+
+        if (response.status === 'success' && response.data) {
+          const nextLeads = response.data;
+          setLeads(currentLeads =>
+            append
+              ? mergeUniqueLeads(currentLeads, nextLeads)
+              : mergeUniqueLeads([], nextLeads),
+          );
+          pageRef.current = page;
+          setHasMore(
+            typeof response.total_leads === 'number'
+              ? page * PAGE_LIMIT < response.total_leads
+              : nextLeads.length === PAGE_LIMIT,
+          );
+        } else {
+          setError(response.message || 'Failed to fetch leads');
+          if (!append) {
+            setLeads([]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching leads:', err);
+        setError('An error occurred while fetching leads');
+        if (!append) {
+          setLeads([]);
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
+        loadingMoreRef.current = false;
+      }
+    },
+    [userData],
+  );
 
   useEffect(() => {
-    fetchLeads();
+    pageRef.current = 1;
+    setHasMore(true);
+    fetchLeads(1, false);
   }, [fetchLeads]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchLeads();
+    pageRef.current = 1;
+    setHasMore(true);
+    fetchLeads(1, false);
   }, [fetchLeads]);
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'new':
-        return '#4CAF50';
-      case 'contacted':
-      case 'processing':
-        return '#FF9800';
-      case 'converted':
-        return '#2196F3';
-      case 'cancelled':
-        return '#F44336';
-      default:
-        return '#888';
+  const loadMoreLeads = useCallback(() => {
+    if (loading || refreshing || loadingMoreRef.current || !hasMore) {
+      return;
     }
-  };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'contacted':
-      case 'processing':
-        return 'Contacted';
-      case 'new':
-        return 'New Lead';
-      case 'converted':
-        return 'Converted';
-      case 'cancelled':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  };
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    fetchLeads(pageRef.current + 1, true);
+  }, [fetchLeads, hasMore, loading, refreshing]);
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-    
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-  };
-
-  const renderItem = ({item}: {item: Lead}) => {
-    return (
+  const renderItem = useCallback(
+    ({item}: {item: Lead}) => (
       <TouchableOpacity
         style={styles.leadCard}
         onPress={() => navigation.navigate('LeadDetails', {lead: item})}
         activeOpacity={0.7}>
-        {/* Blur Background */}
-        <BlurView
-          style={StyleSheet.absoluteFillObject}
-          blurType="dark"
-          blurAmount={10}
-          reducedTransparencyFallbackColor="rgba(40, 40, 40, 0.95)"
-        />
-        
         {/* Top Section */}
         <View style={styles.leadCardTop}>
           {/* Left: Avatar and Name */}
@@ -169,13 +214,23 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
                   {backgroundColor: getStatusColor(item.status)},
                 ]}
               />
-              <Text style={[styles.leadStatus, {color: getStatusColor(item.status)}]}>
+              <Text
+                style={[
+                  styles.leadStatus,
+                  {color: getStatusColor(item.status)},
+                ]}>
                 {getStatusLabel(item.status)}
               </Text>
             </View>
             <View style={styles.leadTimestamp}>
-              <Icon name="access-time" size={12} color="rgba(255, 255, 255, 0.4)" />
-              <Text style={styles.timestampText}>{formatTime(item.created_at)}</Text>
+              <Icon
+                name="access-time"
+                size={12}
+                color="rgba(255, 255, 255, 0.4)"
+              />
+              <Text style={styles.timestampText}>
+                {formatRelativeTime(item.created_at)}
+              </Text>
             </View>
           </View>
         </View>
@@ -185,7 +240,11 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
           <View style={styles.leadRequirementSection}>
             <View style={styles.requirementDivider} />
             <View style={styles.requirementContent}>
-              <Icon name="description" size={14} color="rgba(212, 175, 55, 0.7)" />
+              <Icon
+                name="description"
+                size={14}
+                color="rgba(212, 175, 55, 0.7)"
+              />
               <Text style={styles.requirementText} numberOfLines={2}>
                 {item.requirement}
               </Text>
@@ -193,8 +252,9 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
           </View>
         )}
       </TouchableOpacity>
-    );
-  };
+    ),
+    [navigation],
+  );
 
   const renderEmpty = () => {
     if (loading) return null;
@@ -212,7 +272,8 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
         </View>
         <Text style={styles.emptyTitle}>No Leads Found</Text>
         <Text style={styles.emptySubtitle}>
-          You don't have any leads yet.{'\n'}Start adding leads to see them here.
+          You don't have any leads yet.{'\n'}Start adding leads to see them
+          here.
         </Text>
       </View>
     );
@@ -224,7 +285,7 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
       style={styles.container}
       resizeMode="cover">
       <View style={styles.overlay} />
-      
+
       <StatusBar
         barStyle="light-content"
         translucent
@@ -268,7 +329,7 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
         <FlatList
           data={leads}
           renderItem={renderItem}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={getLeadKey}
           contentContainerStyle={[
             styles.listContent,
             leads.length === 0 && styles.emptyListContent,
@@ -281,7 +342,21 @@ export const AllLeadsScreen: React.FC<AllLeadsScreenProps> = ({navigation}) => {
             />
           }
           showsVerticalScrollIndicator={false}
+          onEndReached={loadMoreLeads}
+          onEndReachedThreshold={0.35}
+          initialNumToRender={8}
+          maxToRenderPerBatch={6}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
+          removeClippedSubviews
           ListEmptyComponent={renderEmpty}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.paginationLoader}>
+                <ActivityIndicator size="small" color="#D4AF37" />
+              </View>
+            ) : null
+          }
         />
       )}
     </ImageBackground>
@@ -337,6 +412,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
+  paginationLoader: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
   listContent: {
     paddingHorizontal: 24,
     paddingTop: 120,
@@ -349,6 +428,7 @@ const styles = StyleSheet.create({
   leadCard: {
     marginBottom: 12,
     borderRadius: 16,
+    backgroundColor: 'rgba(28, 28, 32, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.2)',
     overflow: 'hidden',

@@ -526,11 +526,19 @@ export const filterLeads = async (
 export const viewLeads = async (
   userid: string | number,
   token: string | number,
+  page?: number,
+  limit?: number,
 ): Promise<ViewLeadsResponse> => {
   const formData = new FormData();
   formData.append('action', 'view_lead');
   formData.append('userid', userid.toString());
   formData.append('token', token.toString());
+  if (page !== undefined) {
+    formData.append('page', page.toString());
+  }
+  if (limit !== undefined) {
+    formData.append('limit', limit.toString());
+  }
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);
@@ -770,11 +778,15 @@ export interface NotificationResponse {
 export const getNotifications = async (
   userid: string | number,
   token: string | number,
+  page = 1,
+  limit = 10,
 ): Promise<NotificationResponse> => {
   const formData = new FormData();
   formData.append('action', 'notification');
   formData.append('userid', userid.toString());
   formData.append('token', token.toString());
+  formData.append('page', page.toString());
+  formData.append('limit', limit.toString());
 
   const startTime = Date.now();
   logRequest(API_BASE_URL, 'POST', formData);
@@ -1098,6 +1110,9 @@ export interface SliderItem {
 }
 
 export interface LeadsSummaryItem {
+  type: string;
+  count: number;
+  // Kept optional for compatibility with older API responses.
   new?: number;
   processing?: number;
   cancelled?: number;

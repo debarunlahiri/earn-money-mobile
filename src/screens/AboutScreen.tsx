@@ -18,6 +18,8 @@ import {Logo} from '../components/Logo';
 import appJson from '../../app.json';
 
 const APP_NAME = appJson.expo.name;
+const SUPPORT_EMAIL = 'support@earnwithfreelancing.com';
+const WEBSITE_URL = 'https://earnwithfreelancing.com';
 
 interface AboutScreenProps {
   navigation: any;
@@ -28,19 +30,19 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({navigation}) => {
   const insets = useSafeAreaInsets();
 
   const handleEmailPress = () => {
-    Linking.openURL('mailto:support@propertyinder.com');
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
   };
 
   const handleWebsitePress = () => {
-    Linking.openURL('https://www.propertyinder.com');
+    Linking.openURL(WEBSITE_URL);
   };
 
   const handlePrivacyPress = () => {
-    Linking.openURL('https://www.propertyinder.com/privacy');
+    Linking.openURL(`${WEBSITE_URL}/privacy`);
   };
 
   const handleTermsPress = () => {
-    Linking.openURL('https://www.propertyinder.com/terms');
+    Linking.openURL(`${WEBSITE_URL}/terms`);
   };
 
   return (
@@ -143,7 +145,7 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({navigation}) => {
                     Email
                   </Text>
                   <Text style={[styles.infoValue, {color: theme.colors.primary}]}>
-                    support@earnmoney.com
+                    {SUPPORT_EMAIL}
                   </Text>
                 </View>
                 <Icon name="open-in-new" size={18} color={theme.colors.textSecondary} />
@@ -158,7 +160,7 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({navigation}) => {
                     Website
                   </Text>
                   <Text style={[styles.infoValue, {color: theme.colors.primary}]}>
-                    www.earnmoney.com
+                    earnwithfreelancing.com
                   </Text>
                 </View>
                 <Icon name="open-in-new" size={18} color={theme.colors.textSecondary} />

@@ -8,10 +8,8 @@ import {
   TouchableOpacity,
   StatusBar,
   ImageBackground,
-  Animated,
   ActivityIndicator,
   Linking,
-  ScrollView,
   Image,
 } from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
@@ -20,8 +18,6 @@ import {BlurView} from '@react-native-community/blur';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {FallingRupees} from '../components/FallingRupee';
-import {useScrollVisibility} from '../context/ScrollVisibilityContext';
 import {useAuth} from '../context/AuthContext';
 import {
   Lead,
@@ -32,7 +28,6 @@ import {
   LeadsSummaryItem,
 } from '../services/api';
 import {Carousel, CarouselItem} from '../components/Carousel';
-import {Logo} from '../components/Logo';
 import {getFCMToken} from '../services/fcmService';
 import {LeadFilter, LeadSearchFilter} from '../components/LeadSearchFilter';
 
@@ -44,6 +39,80 @@ interface MyLeadsScreenProps {
 type SortType = 'newest' | 'oldest' | 'name';
 
 const PAGE_LIMIT = 10;
+
+const getFilterForSummaryType = (type: string): LeadFilter | undefined => {
+  switch (type.trim().toLowerCase()) {
+    case 'new':
+      return 'new';
+    case 'contacted':
+    case 'processing':
+      return 'processing';
+    case 'cancelled':
+    case 'canceled':
+      return 'cancelled';
+    case 'deal success':
+    case 'converted':
+      return 'converted';
+    default:
+      return undefined;
+  }
+};
+
+const getInitials = (name: string) =>
+  name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'new':
+      return '#4CAF50';
+    case 'contacted':
+    case 'processing':
+      return '#FF9800';
+    case 'converted':
+      return '#2196F3';
+    case 'cancelled':
+      return '#F44336';
+    default:
+      return '#888';
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case 'contacted':
+    case 'processing':
+      return 'Contacted';
+    case 'new':
+      return 'New Lead';
+    case 'converted':
+      return 'Converted';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status;
+  }
+};
+
+const formatRelativeTime = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+
+  return date.toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
+};
 
 const mergeUniqueLeads = (current: Lead[], incoming: Lead[]): Lead[] => {
   const leadsById = new Map<string, Lead>();
@@ -61,7 +130,6 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
   const {theme} = useTheme();
   const insets = useSafeAreaInsets();
   const {userData} = useAuth();
-  const {handleScroll, headerTranslateY} = useScrollVisibility();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,47 +207,6 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
       ),
     }));
   }, [sliderItems]);
-
-  // Computed stats from API leads_summary or fallback to computed from leads
-  const stats = useMemo(() => {
-    if (leadsSummary.length > 0) {
-      // Use API data
-      const newLeads =
-        leadsSummary.find(item => item.new !== undefined)?.new || 0;
-      const processing =
-        leadsSummary.find(item => item.processing !== undefined)?.processing ||
-        0;
-      const cancelled =
-        leadsSummary.find(item => item.cancelled !== undefined)?.cancelled || 0;
-      const converted =
-        leadsSummary.find(item => item.converted !== undefined)?.converted || 0;
-      const total = newLeads + processing + cancelled + converted;
-      const conversionRate =
-        total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
-
-      return {
-        total,
-        newLeads,
-        contacted: processing,
-        converted,
-        conversionRate,
-        cancelled,
-      };
-    } else {
-      // Fallback to computed from leads array
-      const total = leads.length;
-      const newLeads = leads.filter(l => l.status === 'new').length;
-      const contacted = leads.filter(
-        l => l.status === 'contacted' || l.status === 'processing',
-      ).length;
-      const converted = leads.filter(l => l.status === 'converted').length;
-      const cancelled = leads.filter(l => l.status === 'cancelled').length;
-      const conversionRate =
-        total > 0 ? ((converted / total) * 100).toFixed(1) : '0';
-
-      return {total, newLeads, contacted, converted, conversionRate, cancelled};
-    }
-  }, [leads, leadsSummary]);
 
   // Filtered and sorted leads
   const filteredAndSortedLeads = useMemo(() => {
@@ -429,66 +456,8 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
     Linking.openURL(`whatsapp://send?phone=91${mobile}`);
   };
 
-  const renderItem = ({item, index}: {item: Lead; index: number}) => {
-    const getInitials = (name: string) => {
-      return name
-        .split(' ')
-        .map(word => word[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-    };
-
-    const getStatusColor = (status: string) => {
-      switch (status) {
-        case 'new':
-          return '#4CAF50';
-        case 'contacted':
-        case 'processing':
-          return '#FF9800';
-        case 'converted':
-          return '#2196F3';
-        case 'cancelled':
-          return '#F44336';
-        default:
-          return '#888';
-      }
-    };
-
-    const getStatusLabel = (status: string) => {
-      switch (status) {
-        case 'contacted':
-        case 'processing':
-          return 'Contacted';
-        case 'new':
-          return 'New Lead';
-        case 'converted':
-          return 'Converted';
-        case 'cancelled':
-          return 'Cancelled';
-        default:
-          return status;
-      }
-    };
-
-    const formatTime = (dateString: string) => {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMs / 3600000);
-      const diffDays = Math.floor(diffMs / 86400000);
-
-      if (diffMins < 1) return 'Just now';
-      if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-      if (diffHours < 24)
-        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-
-      return date.toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
-    };
-
-    return (
+  const renderItem = useCallback(
+    ({item}: {item: Lead}) => (
       <TouchableOpacity
         style={styles.leadCard}
         onPress={() => {
@@ -501,14 +470,6 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           });
         }}
         activeOpacity={0.7}>
-        {/* Blur Background */}
-        <BlurView
-          style={StyleSheet.absoluteFillObject}
-          blurType="dark"
-          blurAmount={10}
-          reducedTransparencyFallbackColor="rgba(40, 40, 40, 0.95)"
-        />
-
         {/* Top Section */}
         <View style={styles.leadCardTop}>
           {/* Left: Avatar and Name */}
@@ -553,7 +514,7 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
                 color="rgba(255, 255, 255, 0.4)"
               />
               <Text style={styles.timestampText}>
-                {formatTime(item.created_at)}
+                {formatRelativeTime(item.created_at)}
               </Text>
             </View>
           </View>
@@ -576,8 +537,9 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
           </View>
         )}
       </TouchableOpacity>
-    );
-  };
+    ),
+    [navigation],
+  );
 
   const renderEmpty = () => {
     if (loading) return null;
@@ -662,91 +624,53 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
             <Text style={styles.leadsSummaryTitle}>Leads Overview</Text>
 
             <View style={styles.summaryCardsRow}>
-              {/* New Leads Card */}
-              <TouchableOpacity
-                style={[
-                  styles.summaryCard,
+              {leadsSummary.map((item, index) => {
+                const summaryFilter = getFilterForSummaryType(item.type);
+                const cardStyles = [
                   styles.summaryCardGreen,
-                  filterType === 'new' && styles.summaryCardSelected,
-                ]}
-                onPress={() => setFilterType('new')}
-                activeOpacity={0.75}>
-                <BlurView
-                  style={StyleSheet.absoluteFillObject}
-                  blurType="dark"
-                  blurAmount={10}
-                  reducedTransparencyFallbackColor="rgba(76, 175, 80, 0.2)"
-                />
-                <View style={styles.summaryCardContent}>
-                  <Text style={styles.summaryValue}>{stats.newLeads}</Text>
-                  <Text style={styles.summaryLabel}>New Leads</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Processing Card */}
-              <TouchableOpacity
-                style={[
-                  styles.summaryCard,
                   styles.summaryCardOrange,
-                  filterType === 'processing' && styles.summaryCardSelected,
-                ]}
-                onPress={() => setFilterType('processing')}
-                activeOpacity={0.75}>
-                <BlurView
-                  style={StyleSheet.absoluteFillObject}
-                  blurType="dark"
-                  blurAmount={10}
-                  reducedTransparencyFallbackColor="rgba(255, 152, 0, 0.2)"
-                />
-                <View style={styles.summaryCardContent}>
-                  <Text style={styles.summaryValue}>{stats.contacted}</Text>
-                  <Text style={styles.summaryLabel}>Contacted</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Cancelled Card */}
-              <TouchableOpacity
-                style={[
-                  styles.summaryCard,
                   styles.summaryCardPurple,
-                  filterType === 'cancelled' && styles.summaryCardSelected,
-                ]}
-                onPress={() => setFilterType('cancelled')}
-                activeOpacity={0.75}>
-                <BlurView
-                  style={StyleSheet.absoluteFillObject}
-                  blurType="dark"
-                  blurAmount={10}
-                  reducedTransparencyFallbackColor="rgba(156, 39, 176, 0.2)"
-                />
-                <View style={styles.summaryCardContent}>
-                  <Text style={styles.summaryValue}>
-                    {stats.cancelled || 0}
-                  </Text>
-                  <Text style={styles.summaryLabel}>Cancelled</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Converted Card */}
-              <TouchableOpacity
-                style={[
-                  styles.summaryCard,
                   styles.summaryCardBlue,
-                  filterType === 'converted' && styles.summaryCardSelected,
-                ]}
-                onPress={() => setFilterType('converted')}
-                activeOpacity={0.75}>
-                <BlurView
-                  style={StyleSheet.absoluteFillObject}
-                  blurType="dark"
-                  blurAmount={10}
-                  reducedTransparencyFallbackColor="rgba(33, 150, 243, 0.2)"
-                />
-                <View style={styles.summaryCardContent}>
-                  <Text style={styles.summaryValue}>{stats.converted}</Text>
-                  <Text style={styles.summaryLabel}>Converted</Text>
-                </View>
-              </TouchableOpacity>
+                ];
+                const fallbackColors = [
+                  'rgba(76, 175, 80, 0.2)',
+                  'rgba(255, 152, 0, 0.2)',
+                  'rgba(156, 39, 176, 0.2)',
+                  'rgba(33, 150, 243, 0.2)',
+                ];
+                const colorIndex = index % cardStyles.length;
+
+                return (
+                  <TouchableOpacity
+                    key={`${item.type}-${index}`}
+                    style={[
+                      styles.summaryCard,
+                      cardStyles[colorIndex],
+                      summaryFilter === filterType &&
+                        styles.summaryCardSelected,
+                    ]}
+                    onPress={() =>
+                      summaryFilter && setFilterType(summaryFilter)
+                    }
+                    disabled={!summaryFilter}
+                    activeOpacity={0.75}>
+                    <BlurView
+                      style={StyleSheet.absoluteFillObject}
+                      blurType="dark"
+                      blurAmount={10}
+                      reducedTransparencyFallbackColor={
+                        fallbackColors[colorIndex]
+                      }
+                    />
+                    <View style={styles.summaryCardContent}>
+                      <Text style={styles.summaryValue}>
+                        {Number(item.count || 0)}
+                      </Text>
+                      <Text style={styles.summaryLabel}>{item.type}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}
@@ -807,11 +731,15 @@ export const MyLeadsScreen: React.FC<MyLeadsScreenProps> = ({
               tintColor="#D4AF37"
             />
           }
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
           onEndReached={loadMoreLeads}
           onEndReachedThreshold={0.35}
+          initialNumToRender={8}
+          maxToRenderPerBatch={6}
+          updateCellsBatchingPeriod={50}
+          windowSize={7}
+          removeClippedSubviews={false}
           ListHeaderComponent={renderHeader()}
           ListEmptyComponent={renderEmpty}
           ListFooterComponent={
@@ -1123,11 +1051,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(255, 255, 255, 0.6)',
     fontWeight: '500',
+    textAlign: 'center',
   },
   // Lead Card Styles
   leadCard: {
     marginBottom: 6,
     borderRadius: 16,
+    backgroundColor: 'rgba(28, 28, 32, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.2)',
     overflow: 'hidden',

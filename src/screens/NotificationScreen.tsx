@@ -1,29 +1,81 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  SectionList,
   StatusBar,
   ImageBackground,
   ActivityIndicator,
   TouchableOpacity,
   Platform,
+  RefreshControl,
   ToastAndroid,
 } from 'react-native';
 import {BlurView} from '@react-native-community/blur';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTheme} from '../theme/ThemeContext';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import {FallingRupees} from '../components/FallingRupee';
 import {useAuth} from '../context/AuthContext';
-import {getNotifications, Notification, updateUnreadNotification} from '../services/api';
+import {
+  getNotifications,
+  Notification,
+  updateUnreadNotification,
+} from '../services/api';
 
 interface NotificationScreenProps {
   navigation: any;
 }
 
-export const NotificationScreen: React.FC<NotificationScreenProps> = ({navigation}) => {
+const PAGE_LIMIT = 10;
+const NOTIFICATION_GROUPS = [
+  'Today',
+  'Yesterday',
+  'This Week',
+  'This Month',
+  'Earlier',
+];
+
+const getNotificationKey = (notification: Notification) =>
+  `${notification.title}|${notification.mess}|${notification.date}|${notification.time}`;
+
+const mergeUniqueNotifications = (
+  current: Notification[],
+  incoming: Notification[],
+) => {
+  const notificationsByKey = new Map(
+    current.map(notification => [
+      getNotificationKey(notification),
+      notification,
+    ]),
+  );
+
+  incoming.forEach(notification => {
+    notificationsByKey.set(getNotificationKey(notification), notification);
+  });
+
+  return Array.from(notificationsByKey.values());
+};
+
+const getNotificationGroup = (dateStr: string): string => {
+  const notificationDate = new Date(dateStr.split('-').reverse().join('-'));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  notificationDate.setHours(0, 0, 0, 0);
+  const diffTime = today.getTime() - notificationDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays <= 7) return 'This Week';
+  if (diffDays <= 30) return 'This Month';
+  return 'Earlier';
+};
+
+export const NotificationScreen: React.FC<NotificationScreenProps> = ({
+  navigation,
+}) => {
   const {theme} = useTheme();
   const insets = useSafeAreaInsets();
   const {userData} = useAuth();
@@ -32,40 +84,68 @@ export const NotificationScreen: React.FC<NotificationScreenProps> = ({navigatio
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const pageRef = useRef(1);
+  const isLoadingMoreRef = useRef(false);
 
-  const fetchNotifications = async () => {
-    if (!userData?.userid || !userData?.token) {
-      setError('User not logged in');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const response = await getNotifications(userData.userid, userData.token);
-
-      if (response.status === 'success' && response.status_code === 200) {
-        if (response.userdata) {
-          setNotifications(response.userdata);
-          setError(null);
-        } else {
-          setNotifications([]);
-        }
-      } else {
-        setError('Failed to load notifications');
+  const fetchNotifications = useCallback(
+    async (page = 1, append = false) => {
+      if (!userData?.userid || !userData?.token) {
+        setError('User not logged in');
+        setIsLoading(false);
+        return;
       }
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-      setError('Failed to load notifications');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
+      try {
+        if (!append) {
+          setIsLoading(true);
+        }
+        const response = await getNotifications(
+          userData.userid,
+          userData.token,
+          page,
+          PAGE_LIMIT,
+        );
+
+        if (response.status === 'success' && response.status_code === 200) {
+          const nextNotifications = response.userdata || [];
+          setNotifications(currentNotifications =>
+            append
+              ? mergeUniqueNotifications(
+                  currentNotifications,
+                  nextNotifications,
+                )
+              : mergeUniqueNotifications([], nextNotifications),
+          );
+          pageRef.current = page;
+          setHasMore(nextNotifications.length === PAGE_LIMIT);
+          setError(null);
+
+          if (!append && nextNotifications.length === 0) {
+            setNotifications([]);
+          }
+        } else {
+          setError('Failed to load notifications');
+        }
+      } catch (err) {
+        console.error('Error fetching notifications:', err);
+        setError('Failed to load notifications');
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }
+    },
+    [userData],
+  );
 
   useEffect(() => {
-
-    fetchNotifications();
-  }, [userData]);
+    pageRef.current = 1;
+    setHasMore(true);
+    fetchNotifications(1, false);
+  }, [fetchNotifications]);
 
   // Mark notifications as read when screen opens
   useEffect(() => {
@@ -81,7 +161,10 @@ export const NotificationScreen: React.FC<NotificationScreenProps> = ({navigatio
         console.error('Error marking notifications as read:', err);
         // Show toast on failure
         if (Platform.OS === 'android') {
-          ToastAndroid.show('Failed to update notification status', ToastAndroid.SHORT);
+          ToastAndroid.show(
+            'Failed to update notification status',
+            ToastAndroid.SHORT,
+          );
         }
       }
     };
@@ -89,37 +172,30 @@ export const NotificationScreen: React.FC<NotificationScreenProps> = ({navigatio
     markAsRead();
   }, [userData]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setIsRefreshing(true);
-    await fetchNotifications();
-    setIsRefreshing(false);
+    pageRef.current = 1;
+    setHasMore(true);
+    fetchNotifications(1, false);
   };
 
-  const getNotificationGroup = (dateStr: string): string => {
-    const notifDate = new Date(dateStr.split('-').reverse().join('-')); // Convert DD-MM-YYYY to YYYY-MM-DD
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const notifDateOnly = new Date(notifDate);
-    notifDateOnly.setHours(0, 0, 0, 0);
-    
-    const diffTime = today.getTime() - notifDateOnly.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays <= 7) return 'This Week';
-    if (diffDays <= 30) return 'This Month';
-    return 'Earlier';
-  };
+  const loadMoreNotifications = useCallback(() => {
+    if (isLoading || isRefreshing || isLoadingMoreRef.current || !hasMore) {
+      return;
+    }
 
-  const groupNotifications = () => {
-    const groups: { [key: string]: Notification[] } = {
-      'Today': [],
-      'Yesterday': [],
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    fetchNotifications(pageRef.current + 1, true);
+  }, [fetchNotifications, hasMore, isLoading, isRefreshing]);
+
+  const sections = useMemo(() => {
+    const groups: {[key: string]: Notification[]} = {
+      Today: [],
+      Yesterday: [],
       'This Week': [],
       'This Month': [],
-      'Earlier': []
+      Earlier: [],
     };
 
     notifications.forEach(notification => {
@@ -127,46 +203,72 @@ export const NotificationScreen: React.FC<NotificationScreenProps> = ({navigatio
       groups[group].push(notification);
     });
 
-    return groups;
-  };
+    return NOTIFICATION_GROUPS.map(title => ({
+      title,
+      data: groups[title],
+    })).filter(section => section.data.length > 0);
+  }, [notifications]);
 
-  const renderNotificationItem = (item: Notification, index: number) => {
-    return (
-      <View key={index} style={styles.notificationItemContainer}>
+  const renderNotificationItem = useCallback(
+    ({item}: {item: Notification}) => (
+      <View style={styles.notificationItemContainer}>
         <View style={styles.notificationGlassContainer}>
-          <View style={styles.glassBaseLayer} />
-          <View style={styles.glassFrostLayer} />
-          <View style={styles.glassHighlight} />
-          <View style={styles.glassInnerBorder} />
           <View style={styles.notificationContent}>
             <View style={styles.notificationHeader}>
               <View style={styles.iconContainer}>
-                <Icon name="notifications" size={20} color={theme.colors.primary} />
+                <Icon
+                  name="notifications"
+                  size={20}
+                  color={theme.colors.primary}
+                />
               </View>
               <View style={styles.notificationHeaderText}>
-                <Text style={[styles.notificationTitle, {color: theme.colors.text}]}>
+                <Text
+                  style={[
+                    styles.notificationTitle,
+                    {color: theme.colors.text},
+                  ]}>
                   {item.title}
                 </Text>
                 <View style={styles.dateTimeContainer}>
-                  <Icon name="calendar-today" size={12} color={theme.colors.textSecondary} />
-                  <Text style={[styles.notificationDate, {color: theme.colors.textSecondary}]}>
+                  <Icon
+                    name="calendar-today"
+                    size={12}
+                    color={theme.colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.notificationDate,
+                      {color: theme.colors.textSecondary},
+                    ]}>
                     {item.date}
                   </Text>
-                  <Icon name="access-time" size={12} color={theme.colors.textSecondary} style={styles.timeIcon} />
-                  <Text style={[styles.notificationTime, {color: theme.colors.textSecondary}]}>
+                  <Icon
+                    name="access-time"
+                    size={12}
+                    color={theme.colors.textSecondary}
+                    style={styles.timeIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.notificationTime,
+                      {color: theme.colors.textSecondary},
+                    ]}>
                     {item.time}
                   </Text>
                 </View>
               </View>
             </View>
-            <Text style={[styles.notificationMessage, {color: theme.colors.text}]}>
+            <Text
+              style={[styles.notificationMessage, {color: theme.colors.text}]}>
               {item.mess}
             </Text>
           </View>
         </View>
       </View>
-    );
-  };
+    ),
+    [theme.colors.primary, theme.colors.text, theme.colors.textSecondary],
+  );
 
   return (
     <ImageBackground
@@ -195,7 +297,6 @@ export const NotificationScreen: React.FC<NotificationScreenProps> = ({navigatio
         />
         {/* Subtle overlay for better contrast */}
         <View style={styles.headerOverlay} />
-        <FallingRupees count={12} />
         <View style={styles.headerRow}>
           <Text style={[styles.headerTitle, {color: theme.colors.text}]}>
             Notifications
@@ -204,60 +305,83 @@ export const NotificationScreen: React.FC<NotificationScreenProps> = ({navigatio
             onPress={handleRefresh}
             style={styles.refreshButton}
             disabled={isRefreshing}>
-            <Icon
-              name="refresh"
-              size={24}
-              color={theme.colors.text}
-            />
+            <Icon name="refresh" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
       </View>
-      <ScrollView
+      <SectionList
+        sections={sections}
+        keyExtractor={getNotificationKey}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.contentContainer,
           {paddingTop: insets.top + 100},
+          notifications.length === 0 && styles.emptyContentContainer,
         ]}
-        showsVerticalScrollIndicator={false}>
-        {isLoading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          </View>
-        ) : error ? (
-          <View style={styles.centerContainer}>
-            <Icon name="error-outline" size={48} color={theme.colors.error || '#FF6B6B'} />
-            <Text style={[styles.errorText, {color: theme.colors.error || '#FF6B6B'}]}>
-              {error}
-            </Text>
-          </View>
-        ) : notifications.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <Icon name="notifications-none" size={64} color={theme.colors.textSecondary} />
-            <Text style={[styles.emptyText, {color: theme.colors.textSecondary}]}>
-              No notifications yet
-            </Text>
-          </View>
-        ) : (
-          (() => {
-            const groupedNotifications = groupNotifications();
-            const orderedGroups = ['Today', 'Yesterday', 'This Week', 'This Month', 'Earlier'];
-            
-            return orderedGroups.map(groupName => {
-              const groupNotifs = groupedNotifications[groupName];
-              if (groupNotifs.length === 0) return null;
-              
-              return (
-                <View key={groupName}>
-                  <Text style={[styles.sectionHeader, {color: theme.colors.text}]}>
-                    {groupName}
-                  </Text>
-                  {groupNotifs.map((notification, index) => renderNotificationItem(notification, index))}
-                </View>
-              );
-            });
-          })()
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+        onEndReached={loadMoreNotifications}
+        onEndReachedThreshold={0.35}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={50}
+        windowSize={7}
+        removeClippedSubviews
+        renderItem={renderNotificationItem}
+        renderSectionHeader={({section}) => (
+          <Text style={[styles.sectionHeader, {color: theme.colors.text}]}>
+            {section.title}
+          </Text>
         )}
-      </ScrollView>
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={styles.centerContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          ) : error ? (
+            <View style={styles.centerContainer}>
+              <Icon
+                name="error-outline"
+                size={48}
+                color={theme.colors.error || '#FF6B6B'}
+              />
+              <Text
+                style={[
+                  styles.errorText,
+                  {color: theme.colors.error || '#FF6B6B'},
+                ]}>
+                {error}
+              </Text>
+            </View>
+          ) : notifications.length === 0 ? (
+            <View style={styles.centerContainer}>
+              <Icon
+                name="notifications-none"
+                size={64}
+                color={theme.colors.textSecondary}
+              />
+              <Text
+                style={[styles.emptyText, {color: theme.colors.textSecondary}]}>
+                No notifications yet
+              </Text>
+            </View>
+          ) : null
+        }
+        ListFooterComponent={
+          isLoadingMore ? (
+            <View style={styles.paginationLoader}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : null
+        }
+      />
     </ImageBackground>
   );
 };
@@ -280,6 +404,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 24,
     paddingBottom: 100,
+  },
+  emptyContentContainer: {
+    flexGrow: 1,
   },
   header: {
     position: 'absolute',
@@ -339,53 +466,10 @@ const styles = StyleSheet.create({
   },
   notificationGlassContainer: {
     borderRadius: 20,
-    overflow: 'visible',
-    backgroundColor: 'rgba(139, 69, 19, 0.18)',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(28, 24, 20, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.4)',
-    position: 'relative',
-  },
-  glassBaseLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(139, 69, 19, 0.12)',
-    borderRadius: 20,
-    pointerEvents: 'none',
-  },
-  glassFrostLayer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 20,
-    pointerEvents: 'none',
-  },
-  glassHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    pointerEvents: 'none',
-  },
-  glassInnerBorder: {
-    position: 'absolute',
-    top: 0.5,
-    left: 0.5,
-    right: 0.5,
-    bottom: 0.5,
-    borderRadius: 19.5,
-    borderWidth: 0.5,
-    borderColor: 'rgba(0, 0, 0, 0.3)',
-    pointerEvents: 'none',
   },
   notificationContent: {
     padding: 16,
@@ -434,5 +518,9 @@ const styles = StyleSheet.create({
   notificationMessage: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  paginationLoader: {
+    alignItems: 'center',
+    paddingVertical: 20,
   },
 });
