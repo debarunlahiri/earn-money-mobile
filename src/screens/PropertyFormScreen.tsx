@@ -71,11 +71,6 @@ export const PropertyFormScreen: React.FC<PropertyFormScreenProps> = ({
   const [showStatusPicker, setShowStatusPicker] = useState(false);
 
   const handleImagePicker = async () => {
-    const {status} = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please grant camera roll permissions');
-      return;
-    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,

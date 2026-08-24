@@ -134,8 +134,6 @@ export async function registerForPushNotificationsAsync(): Promise<
         })
       ).data;
 
-      console.log('Expo Push Token:', token);
-      
       // Store token in AsyncStorage for later use
       if (token) {
         await storeExpoPushToken(token);
@@ -237,15 +235,8 @@ export async function sendPushTokenToServer(
 ): Promise<boolean> {
   try {
     const normalizedToken = normalizeExpoTokenForBackend(token);
-    console.log('[ExpoToken][Service] sendPushTokenToServer called', {
-      userId,
-      expoToken: token,
-      normalizedExpoToken: normalizedToken,
-      apiToken,
-    });
     const {saveExpoToken} = await import('./api');
     const response = await saveExpoToken(userId, apiToken, normalizedToken);
-    console.log('[ExpoToken][Service] sendPushTokenToServer response', response);
     return response.status === 'success';
   } catch (error) {
     console.error('Error sending push token to server:', error);

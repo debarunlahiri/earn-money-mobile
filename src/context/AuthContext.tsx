@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {createContext, useContext, useState, useEffect} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { UserData, getProfile } from '../services/api';
-import { subscribeToLogoutRequired } from '../utils/authEventEmitter';
+import {UserData, getProfile} from '../services/api';
+import {subscribeToLogoutRequired} from '../utils/authEventEmitter';
 import {
+  deleteFCMToken,
   getFCMToken,
   sendFCMTokenToServer,
 } from '../services/fcmService';
@@ -17,7 +18,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+export const AuthProvider: React.FC<{children: React.ReactNode}> = ({
   children,
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -31,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // Subscribe to logout events (401 errors from API)
   // Note: The custom dialog is shown by SessionExpiredHandler component
   useEffect(() => {
-    const unsubscribe = subscribeToLogoutRequired(async (data) => {
+    const unsubscribe = subscribeToLogoutRequired(async data => {
       console.log('Received logout required event:', data.message);
 
       // Clear auth state - dialog is shown by SessionExpiredHandler
@@ -72,7 +73,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               ...parsedUserData,
               username: response.userdata.username,
             };
-            await AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+            await AsyncStorage.setItem(
+              'userData',
+              JSON.stringify(updatedUserData),
+            );
             setUserData(updatedUserData);
           } else {
             setUserData(parsedUserData);
@@ -99,7 +103,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       await AsyncStorage.setItem('authToken', 'authenticated');
       if (userDataParam) {
         await AsyncStorage.setItem('userData', JSON.stringify(userDataParam));
-        console.log('[AuthContext] login called, is_new:', userDataParam.is_new);
+        console.log(
+          '[AuthContext] login called, is_new:',
+          userDataParam.is_new,
+        );
         setUserData({...userDataParam});
 
         try {
@@ -123,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     try {
+      await deleteFCMToken();
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('userData');
       setIsAuthenticated(false);
@@ -133,7 +141,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isLoading, userData, login, logout }}>
+    <AuthContext.Provider
+      value={{isAuthenticated, isLoading, userData, login, logout}}>
       {children}
     </AuthContext.Provider>
   );

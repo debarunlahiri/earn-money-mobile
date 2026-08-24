@@ -1,7 +1,13 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+} from 'react';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
-import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
+import {Platform} from 'react-native';
+import type {FirebaseMessagingTypes} from '@react-native-firebase/messaging';
 import {
   registerForPushNotificationsAsync,
   addNotificationReceivedListener,
@@ -15,8 +21,8 @@ import {
   subscribeToTopic,
   sendFCMTokenToServer,
 } from '../services/fcmService';
-import { useAuth } from './AuthContext';
-import { navigateToNotifications } from '../navigation/navigationRef';
+import {useAuth} from './AuthContext';
+import {navigateToNotifications} from '../navigation/navigationRef';
 
 interface NotificationContextType {
   expoPushToken: string | null;
@@ -48,13 +54,17 @@ interface NotificationProviderProps {
   children: React.ReactNode;
 }
 
-export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
+export const NotificationProvider: React.FC<NotificationProviderProps> = ({
+  children,
+}) => {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [fcmToken, setFcmToken] = useState<string | null>(null);
-  const [notification, setNotification] = useState<Notifications.Notification | null>(null);
-  const [fcmMessage, setFcmMessage] = useState<FirebaseMessagingTypes.RemoteMessage | null>(null);
+  const [notification, setNotification] =
+    useState<Notifications.Notification | null>(null);
+  const [fcmMessage, setFcmMessage] =
+    useState<FirebaseMessagingTypes.RemoteMessage | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
-  const { userData } = useAuth();
+  const {userData} = useAuth();
 
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
@@ -65,7 +75,6 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     const token = await registerForPushNotificationsAsync();
     if (token) {
       setExpoPushToken(token);
-      console.log('Expo Push token registered:', token);
     }
   };
 
@@ -76,11 +85,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       const token = await getFCMToken();
       if (token) {
         setFcmToken(token);
-        console.log('FCM token registered:', token);
-        
+
         // Send FCM token to backend
         if (userData?.userid && userData?.token) {
-          await sendFCMTokenToServer(userData.userid, token, userData.token);
+          await sendFCMTokenToServer(
+            userData.userid.toString(),
+            token,
+            userData.token.toString(),
+          );
         }
       }
     }
@@ -102,44 +114,50 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     refreshFCMToken();
 
     // Setup Expo notification listeners
-    notificationListener.current = addNotificationReceivedListener((notification) => {
-      console.log('Expo notification received in foreground:', notification);
-      setNotification(notification);
-      setNotificationCount((prev) => prev + 1);
-    });
+    notificationListener.current = addNotificationReceivedListener(
+      notification => {
+        console.log('Expo notification received in foreground:', notification);
+        setNotification(notification);
+        setNotificationCount(prev => prev + 1);
+      },
+    );
 
-    responseListener.current = addNotificationResponseReceivedListener((response) => {
-      console.log('Expo notification tapped:', response);
-      const data = response.notification.request.content.data;
-      console.log('Expo notification tap data:', data);
+    responseListener.current = addNotificationResponseReceivedListener(
+      response => {
+        console.log('Expo notification tapped:', response);
+        const data = response.notification.request.content.data;
+        console.log('Expo notification tap data:', data);
 
-      navigateToNotifications();
-      resetNotificationCount();
-    });
+        navigateToNotifications();
+        resetNotificationCount();
+      },
+    );
 
     // Setup FCM listeners
     fcmUnsubscribe.current = setupFCMListeners(
       // On message received
-      (message) => {
+      message => {
         console.log('FCM message received:', message);
         setFcmMessage(message);
-        setNotificationCount((prev) => prev + 1);
+        setNotificationCount(prev => prev + 1);
       },
       // On notification opened
-      (message) => {
+      message => {
         console.log('FCM notification opened:', message);
         const data = message.data;
         console.log('FCM notification open data:', data);
 
         navigateToNotifications();
         resetNotificationCount();
-      }
+      },
     );
 
     // Cleanup listeners on unmount
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        Notifications.removeNotificationSubscription(
+          notificationListener.current,
+        );
       }
       if (responseListener.current) {
         Notifications.removeNotificationSubscription(responseListener.current);
@@ -154,7 +172,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   useEffect(() => {
     if (userData?.userid && userData?.token) {
       console.log('User authenticated, syncing tokens...');
-      
+
       // Refresh both tokens when user logs in
       if (!expoPushToken) {
         refreshPushToken();
@@ -162,7 +180,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       if (!fcmToken) {
         refreshFCMToken();
       }
-      
+
       // Subscribe to user-specific topics
       if (fcmToken) {
         subscribeToNotificationTopic(`user_${userData.userid}`);

@@ -66,6 +66,10 @@ react {
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInReleaseBuilds') ?: false).toBoolean()
+def releaseStoreFile = findProperty('EARN_MONEY_UPLOAD_STORE_FILE')
+def releaseStorePassword = findProperty('EARN_MONEY_UPLOAD_STORE_PASSWORD')
+def releaseKeyAlias = findProperty('EARN_MONEY_UPLOAD_KEY_ALIAS')
+def releaseKeyPassword = findProperty('EARN_MONEY_UPLOAD_KEY_PASSWORD')
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -86,9 +90,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.debarunlahiri.earnmoney'
+    namespace 'com.earnwithfreelancing.android'
     defaultConfig {
-        applicationId 'com.debarunlahiri.earnmoney'
+        applicationId 'com.earnwithfreelancing.android'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -101,15 +105,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (signingConfigs.findByName('release')) {
+                signingConfig signingConfigs.release
+            }
             shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"

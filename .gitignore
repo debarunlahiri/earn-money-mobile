@@ -185,6 +185,7 @@ key.json
 *.cer
 *.keystore
 *.jks
+earnwithfreelancing-upload-key.jks
 
 # Google Cloud
 gcloud-service-key.json

@@ -5,6 +5,10 @@
 
 const IS_LOGGING_ENABLED = __DEV__; // Only log in development mode
 
+const SENSITIVE_FIELD_PATTERN =
+  /^(api_?token|auth_?token|expo_?token|fcm_?token|mobile|otp|password|phone|token)$/i;
+const REDACTED_VALUE = '[REDACTED]';
+
 interface LogColors {
   reset: string;
   cyan: string;
@@ -38,12 +42,34 @@ const formDataToCurl = (url: string, formData: FormData): string => {
   const parts = (formData as any)._parts;
   if (parts && Array.isArray(parts)) {
     parts.forEach(([key, value]: [string, any]) => {
-      formEntries.push(`--form '${key}="${value}"'`);
+      const logValue = SENSITIVE_FIELD_PATTERN.test(key)
+        ? REDACTED_VALUE
+        : value;
+      formEntries.push(`--form '${key}="${logValue}"'`);
     });
   }
 
   return `curl --location '${url}' \\
 ${formEntries.join(' \\\n')}`;
+};
+
+const redactSensitiveData = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(redactSensitiveData);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, fieldValue]) => [
+        key,
+        SENSITIVE_FIELD_PATTERN.test(key)
+          ? REDACTED_VALUE
+          : redactSensitiveData(fieldValue),
+      ]),
+    );
+  }
+
+  return value;
 };
 
 /**
@@ -107,7 +133,11 @@ export const logResponse = (
   }
 
   console.log(`${colors.blue}Response:${colors.reset}`);
-  console.log(colors.green + JSON.stringify(data, null, 2) + colors.reset);
+  console.log(
+    colors.green +
+      JSON.stringify(redactSensitiveData(data), null, 2) +
+      colors.reset,
+  );
   console.log('='.repeat(60) + '\n');
 };
 

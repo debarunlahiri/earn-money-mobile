@@ -1071,12 +1071,6 @@ export const saveExpoToken = async (
   token: string | number,
   expo_token: string,
 ): Promise<SaveExpoTokenResponse> => {
-  console.log('[ExpoToken][API] saveExpoToken called', {
-    action: 'expo_token',
-    userid: userid.toString(),
-    token: token.toString(),
-    expo_token,
-  });
   const formData = new FormData();
   formData.append('action', 'expo_token');
   formData.append('userid', userid.toString());
@@ -1093,7 +1087,6 @@ export const saveExpoToken = async (
     });
 
     const data = await response.json();
-    console.log('[ExpoToken][API] saveExpoToken response', data);
     logResponse(API_BASE_URL, response.status, data, Date.now() - startTime);
     checkForAuthError(data);
     return data;

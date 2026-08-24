@@ -8,6 +8,7 @@ import {
   StatusBar,
   ImageBackground,
   Animated,
+  Linking,
 } from 'react-native';
 import {BlurView} from '@react-native-community/blur';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -31,6 +32,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
 
   const handleLogout = async () => {
     await logout();
+  };
+
+  const handleAccountDeletionRequest = () => {
+    const subject = encodeURIComponent('Account deletion request');
+    const body = encodeURIComponent(
+      'Please permanently delete my EarnWithFreelancing account and associated personal data. Please reply with the verification steps required to complete this request.',
+    );
+
+    Linking.openURL(
+      `mailto:support@earnwithfreelancing.com?subject=${subject}&body=${body}`,
+    );
   };
 
   return (
@@ -135,6 +147,51 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({navigation}) => {
             </TouchableOpacity>
           </View>
         </View> */}
+
+        <View style={styles.menuItemContainer}>
+          <View style={styles.menuItemGlassContainer}>
+            <View style={styles.menuItemGlassBaseLayer} />
+            <View style={styles.menuItemGlassFrostLayer} />
+            <View style={styles.menuItemGlassHighlight} />
+            <View style={styles.menuItemGlassInnerBorder} />
+            <TouchableOpacity
+              style={styles.menuItemGlassContent}
+              onPress={handleAccountDeletionRequest}
+              activeOpacity={0.7}>
+              <View style={styles.menuItemLeft}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    {backgroundColor: theme.colors.error + '15'},
+                  ]}>
+                  <Icon
+                    name="delete-forever"
+                    size={22}
+                    color={theme.colors.error}
+                  />
+                </View>
+                <View style={styles.accountDeletionTextContainer}>
+                  <Text
+                    style={[styles.menuItemText, {color: theme.colors.text}]}>
+                    Request Account Deletion
+                  </Text>
+                  <Text
+                    style={[
+                      styles.menuItemDescription,
+                      {color: theme.colors.textSecondary},
+                    ]}>
+                    Permanently delete your account and associated data
+                  </Text>
+                </View>
+              </View>
+              <Icon
+                name="open-in-new"
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Logout */}
         <View style={styles.logoutSection}>
@@ -311,6 +368,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     letterSpacing: 0.2,
+  },
+  accountDeletionTextContainer: {
+    flex: 1,
+  },
+  menuItemDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 3,
   },
   logoutSection: {
     marginTop: 24,

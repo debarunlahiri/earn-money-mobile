@@ -42,7 +42,6 @@ export async function getFCMToken(): Promise<string | null> {
     }
 
     const token = await messaging().getToken();
-    console.log('FCM Token:', token);
     return token;
   } catch (error) {
     console.error('Error getting FCM token:', error);
@@ -127,7 +126,6 @@ export function setupFCMListeners(
 
   // Token refresh listener
   const unsubscribeTokenRefresh = messaging().onTokenRefresh(async token => {
-    console.log('FCM Token refreshed:', token);
     // TODO: Send new token to your backend
   });
 

@@ -25,11 +25,7 @@ interface HomeScreenProps {
   navigation: any;
 }
 
-const HomeTabContent = ({
-  navigation,
-}: {
-  navigation: any;
-}) => {
+const HomeTabContent = ({navigation}: {navigation: any}) => {
   return (
     <View style={styles.container}>
       <MyLeadsScreen navigation={navigation} hideHeader={true} />
@@ -37,11 +33,7 @@ const HomeTabContent = ({
   );
 };
 
-const WalletTabContent = ({
-  navigation,
-}: {
-  navigation: any;
-}) => {
+const WalletTabContent = ({navigation}: {navigation: any}) => {
   return (
     <View style={styles.container}>
       <WalletScreen navigation={navigation} />
@@ -49,11 +41,7 @@ const WalletTabContent = ({
   );
 };
 
-const NotificationTabContent = ({
-  navigation,
-}: {
-  navigation: any;
-}) => {
+const NotificationTabContent = ({navigation}: {navigation: any}) => {
   return (
     <View style={styles.container}>
       <NotificationScreen navigation={navigation} />
@@ -86,35 +74,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   useEffect(() => {
     const syncFcmTokenOnHomeLaunch = async () => {
       if (!userData?.userid || !userData?.token) {
-        console.log('[FCMToken][HomeScreen] Missing user credentials, skipping sync');
         return;
       }
 
       try {
-        console.log('[FCMToken][HomeScreen] Starting sync for user:', userData.userid);
         const hasPermission = await requestFCMPermissions();
-        console.log('[FCMToken][HomeScreen] Permission status:', hasPermission);
 
         if (!hasPermission) {
-          console.log('[FCMToken][HomeScreen] Notification permission denied');
           return;
         }
 
         const fcmToken = await getFCMToken();
-        console.log('[FCMToken][HomeScreen] FCM token:', fcmToken);
 
         if (!fcmToken) {
-          console.log('[FCMToken][HomeScreen] No FCM token available');
           return;
         }
 
-        console.log('[FCMToken][HomeScreen] Sending FCM token to backend:', fcmToken);
         await sendFCMTokenToServer(
           userData.userid.toString(),
           fcmToken,
           userData.token.toString(),
         );
-        console.log('[FCMToken][HomeScreen] FCM token sync completed');
       } catch (error) {
         console.error('Error syncing FCM token from home screen:', error);
       }
@@ -127,7 +107,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
   useFocusEffect(
     React.useCallback(() => {
       fetchUnreadCount();
-    }, [userData])
+    }, [userData]),
   );
 
   const fetchUnreadCount = async () => {
@@ -136,7 +116,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
     }
 
     try {
-      const response = await getUnreadNotificationCount(userData.userid, userData.token);
+      const response = await getUnreadNotificationCount(
+        userData.userid,
+        userData.token,
+      );
       if (response.status === 'success' && response.status_code === 200) {
         if (response.userdata) {
           setUnreadCount(parseInt(response.userdata.unread_count) || 0);
@@ -161,7 +144,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
       <Tab.Navigator
         initialRouteName="Dashboard"
         sceneContainerStyle={{backgroundColor: 'transparent'}}
-        tabBar={(props) => <AnimatedTabBar {...props} />}
+        tabBar={props => <AnimatedTabBar {...props} />}
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: theme.colors.tabActive,
@@ -187,11 +170,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
               <Icon name="home" size={size} color={color} />
             ),
           }}>
-          {() => (
-            <HomeTabContent
-              navigation={navigation}
-            />
-          )}
+          {() => <HomeTabContent navigation={navigation} />}
         </Tab.Screen>
         {/* <Tab.Screen
           name="ForwardLeadsTab"
@@ -215,11 +194,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
               <Icon name="account-balance-wallet" size={size} color={color} />
             ),
           }}>
-          {() => (
-            <WalletTabContent
-              navigation={navigation}
-            />
-          )}
+          {() => <WalletTabContent navigation={navigation} />}
         </Tab.Screen>
         <Tab.Screen
           name="NotificationTab"
@@ -238,11 +213,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({navigation}) => {
               </View>
             ),
           }}>
-          {() => (
-            <NotificationTabContent
-              navigation={navigation}
-            />
-          )}
+          {() => <NotificationTabContent navigation={navigation} />}
         </Tab.Screen>
         <Tab.Screen
           name="Profile"

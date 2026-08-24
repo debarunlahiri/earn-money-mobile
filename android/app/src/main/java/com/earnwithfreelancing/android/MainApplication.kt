@@ -1,4 +1,4 @@
-package com.debarunlahiri.earnmoney
+package com.earnwithfreelancing.android
 
 import android.app.Application
 import android.content.res.Configuration
